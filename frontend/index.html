@@ -1,0 +1,53 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PantryPal</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="container">
+    <header>
+      <h1>PantryPal</h1>
+      <p>Keep track of your pantry and explore food products.</p>
+    </header>
+
+    <section class="card">
+      <h2>Find a product</h2>
+      <label for="barcode">Product barcode</label>
+      <input
+        id="barcode"
+        type="text"
+        inputmode="numeric"
+        placeholder="Enter barcode"
+        disabled
+      >
+      <button disabled>Look up product</button>
+      <p class="hint">Product lookup is coming in Sprint 1.</p>
+    </section>
+
+    <section class="card">
+      <h2>My pantry</h2>
+      <p>Your saved products will appear here.</p>
+    </section>
+
+    <section class="card">
+      <h2>Service status</h2>
+      <p>
+        Pantry Service:
+        <span id="pantry-status">Checking...</span>
+      </p>
+      <p>
+        Catalog Service:
+        <span id="catalog-status">Checking...</span>
+      </p>
+      <button id="refresh-status">Refresh status</button>
+    </section>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
