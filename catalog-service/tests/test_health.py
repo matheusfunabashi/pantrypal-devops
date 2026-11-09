@@ -13,7 +13,7 @@ def test_health_returns_ok():
     response = client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.json() == {"status": "ok", "service": "catalog"}
 
 
 def test_request_is_logged(caplog):
