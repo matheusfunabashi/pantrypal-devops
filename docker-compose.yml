@@ -50,6 +50,7 @@ services:
     environment:
       DB_HOST: pantry-db
       SA_PASSWORD: ${PANTRY_DB_PASSWORD:?set PANTRY_DB_PASSWORD in .env}
+      APP_DB_NAME: pantry_db
       APP_DB_USER: pantry_user
       APP_DB_PASSWORD: ${PANTRY_DB_APP_PASSWORD:?set PANTRY_DB_APP_PASSWORD in .env}
     volumes:
@@ -66,6 +67,7 @@ services:
     environment:
       DB_HOST: catalog-db
       SA_PASSWORD: ${CATALOG_DB_PASSWORD:?set CATALOG_DB_PASSWORD in .env}
+      APP_DB_NAME: catalog_db
       APP_DB_USER: catalog_user
       APP_DB_PASSWORD: ${CATALOG_DB_APP_PASSWORD:?set CATALOG_DB_APP_PASSWORD in .env}
     volumes:
