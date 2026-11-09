@@ -41,7 +41,41 @@ services:
       retries: 10
       start_period: 30s
 
-  # APIs
+  # One-shot jobs: create each service's own login, so the APIs never use "sa".
+  # They run once the database is healthy, then exit. See db/create-app-login.sh.
+  pantry-db-init:
+    image: mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04
+    platform: linux/amd64
+    entrypoint: ["/bin/bash", "/scripts/create-app-login.sh"]
+    environment:
+      DB_HOST: pantry-db
+      SA_PASSWORD: ${PANTRY_DB_PASSWORD:?set PANTRY_DB_PASSWORD in .env}
+      APP_DB_USER: pantry_user
+      APP_DB_PASSWORD: ${PANTRY_DB_APP_PASSWORD:?set PANTRY_DB_APP_PASSWORD in .env}
+    volumes:
+      - ./db/create-app-login.sh:/scripts/create-app-login.sh:ro
+    depends_on:
+      pantry-db:
+        condition: service_healthy
+    restart: "no"
+
+  catalog-db-init:
+    image: mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04
+    platform: linux/amd64
+    entrypoint: ["/bin/bash", "/scripts/create-app-login.sh"]
+    environment:
+      DB_HOST: catalog-db
+      SA_PASSWORD: ${CATALOG_DB_PASSWORD:?set CATALOG_DB_PASSWORD in .env}
+      APP_DB_USER: catalog_user
+      APP_DB_PASSWORD: ${CATALOG_DB_APP_PASSWORD:?set CATALOG_DB_APP_PASSWORD in .env}
+    volumes:
+      - ./db/create-app-login.sh:/scripts/create-app-login.sh:ro
+    depends_on:
+      catalog-db:
+        condition: service_healthy
+    restart: "no"
+
+  # APIs (connect with their own login, never as sa)
   pantry-service:
     build: ./pantry-service
     ports:
@@ -49,14 +83,14 @@ services:
     environment:
       DB_HOST: pantry-db
       DB_PORT: "1433"
-      DB_NAME: pantry
-      DB_USER: sa
-      DB_PASSWORD: ${PANTRY_DB_PASSWORD:?set PANTRY_DB_PASSWORD in .env}
+      DB_NAME: pantry_db
+      DB_USER: pantry_user
+      DB_PASSWORD: ${PANTRY_DB_APP_PASSWORD:?set PANTRY_DB_APP_PASSWORD in .env}
       CORS_ORIGINS: http://localhost:8080
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     depends_on:
-      pantry-db:
-        condition: service_healthy
+      pantry-db-init:
+        condition: service_completed_successfully
 
   catalog-service:
     build: ./catalog-service
@@ -65,16 +99,16 @@ services:
     environment:
       DB_HOST: catalog-db
       DB_PORT: "1433"
-      DB_NAME: catalog
-      DB_USER: sa
-      DB_PASSWORD: ${CATALOG_DB_PASSWORD:?set CATALOG_DB_PASSWORD in .env}
+      DB_NAME: catalog_db
+      DB_USER: catalog_user
+      DB_PASSWORD: ${CATALOG_DB_APP_PASSWORD:?set CATALOG_DB_APP_PASSWORD in .env}
       CORS_ORIGINS: http://localhost:8080
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       OFF_BASE_URL: ${OFF_BASE_URL:-https://world.openfoodfacts.org}
       OFF_TIMEOUT_SECONDS: ${OFF_TIMEOUT_SECONDS:-5}
     depends_on:
-      catalog-db:
-        condition: service_healthy
+      catalog-db-init:
+        condition: service_completed_successfully
 
   #  Frontend
   frontend:
