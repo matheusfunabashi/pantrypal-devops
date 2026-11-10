@@ -6,8 +6,8 @@
 body {
   margin: 0;
   font-family: Arial, sans-serif;
-  background: #f6f8f7;
-  color: #24332c;
+  background: #f5f7f5;
+  color: #26362d;
 }
 
 .container {
@@ -29,7 +29,7 @@ h1 {
   padding: 24px;
   margin-bottom: 20px;
   border-radius: 12px;
-  border: 1px solid #e2e7e3;
+  border: 1px solid #e1e5e1;
 }
 
 input {
@@ -55,8 +55,8 @@ button:disabled {
 }
 
 .hint {
-  color: #68756c;
   font-size: 14px;
+  color: #68756c;
 }
 
 .healthy {

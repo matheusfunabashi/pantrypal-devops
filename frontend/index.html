@@ -11,21 +11,23 @@
   <main class="container">
     <header>
       <h1>PantryPal</h1>
-      <p>Keep track of your pantry and explore food products.</p>
+      <p>Your pantry, organized.</p>
     </header>
 
     <section class="card">
       <h2>Find a product</h2>
+
       <label for="barcode">Product barcode</label>
       <input
         id="barcode"
         type="text"
         inputmode="numeric"
-        placeholder="Enter barcode"
+        placeholder="Enter a barcode"
         disabled
       >
+
       <button disabled>Look up product</button>
-      <p class="hint">Product lookup is coming in Sprint 1.</p>
+      <p class="hint">Coming in Sprint 1.</p>
     </section>
 
     <section class="card">
@@ -35,15 +37,20 @@
 
     <section class="card">
       <h2>Service status</h2>
+
       <p>
         Pantry Service:
         <span id="pantry-status">Checking...</span>
       </p>
+
       <p>
         Catalog Service:
         <span id="catalog-status">Checking...</span>
       </p>
-      <button id="refresh-status">Refresh status</button>
+
+      <button id="refresh-status">
+        Refresh status
+      </button>
     </section>
   </main>
 
