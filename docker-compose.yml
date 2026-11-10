@@ -1,0 +1,125 @@
+# PantryPal — local development stack
+# Usage:
+#   cp .env.example .env   # then fill in the passwords
+#   docker compose up --build
+#
+# Host ports:  pantry 8000 · catalog 8001 · frontend 8080 · pantry-db 1433 · catalog-db 1434
+
+services:
+  # Databases
+  pantry-db:
+    image: mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04
+    platform: linux/amd64
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${PANTRY_DB_PASSWORD:?set PANTRY_DB_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:1433:1433"
+    volumes:
+      - pantry-db-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' -b -o /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  catalog-db:
+    image: mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04
+    platform: linux/amd64
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${CATALOG_DB_PASSWORD:?set CATALOG_DB_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:1434:1433"
+    volumes:
+      - catalog-db-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' -b -o /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # One-shot jobs: create each service's own login, so the APIs never use "sa".
+  # They run once the database is healthy, then exit. See db/create-app-login.sh.
+  pantry-db-init:
+    image: mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04
+    platform: linux/amd64
+    entrypoint: ["/bin/bash", "/scripts/create-app-login.sh"]
+    environment:
+      DB_HOST: pantry-db
+      SA_PASSWORD: ${PANTRY_DB_PASSWORD:?set PANTRY_DB_PASSWORD in .env}
+      APP_DB_NAME: pantry_db
+      APP_DB_USER: pantry_user
+      APP_DB_PASSWORD: ${PANTRY_DB_APP_PASSWORD:?set PANTRY_DB_APP_PASSWORD in .env}
+    volumes:
+      - ./db/create-app-login.sh:/scripts/create-app-login.sh:ro
+    depends_on:
+      pantry-db:
+        condition: service_healthy
+    restart: "no"
+
+  catalog-db-init:
+    image: mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04
+    platform: linux/amd64
+    entrypoint: ["/bin/bash", "/scripts/create-app-login.sh"]
+    environment:
+      DB_HOST: catalog-db
+      SA_PASSWORD: ${CATALOG_DB_PASSWORD:?set CATALOG_DB_PASSWORD in .env}
+      APP_DB_NAME: catalog_db
+      APP_DB_USER: catalog_user
+      APP_DB_PASSWORD: ${CATALOG_DB_APP_PASSWORD:?set CATALOG_DB_APP_PASSWORD in .env}
+    volumes:
+      - ./db/create-app-login.sh:/scripts/create-app-login.sh:ro
+    depends_on:
+      catalog-db:
+        condition: service_healthy
+    restart: "no"
+
+  # APIs (connect with their own login, never as sa)
+  pantry-service:
+    build: ./pantry-service
+    ports:
+      - "8000:8000"
+    environment:
+      DB_HOST: pantry-db
+      DB_PORT: "1433"
+      DB_NAME: pantry_db
+      DB_USER: pantry_user
+      DB_PASSWORD: ${PANTRY_DB_APP_PASSWORD:?set PANTRY_DB_APP_PASSWORD in .env}
+      CORS_ORIGINS: http://localhost:8080
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      pantry-db-init:
+        condition: service_completed_successfully
+
+  catalog-service:
+    build: ./catalog-service
+    ports:
+      - "8001:8000"                  # host 8001 -> container 8000
+    environment:
+      DB_HOST: catalog-db
+      DB_PORT: "1433"
+      DB_NAME: catalog_db
+      DB_USER: catalog_user
+      DB_PASSWORD: ${CATALOG_DB_APP_PASSWORD:?set CATALOG_DB_APP_PASSWORD in .env}
+      CORS_ORIGINS: http://localhost:8080
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      OFF_BASE_URL: ${OFF_BASE_URL:-https://world.openfoodfacts.org}
+      OFF_TIMEOUT_SECONDS: ${OFF_TIMEOUT_SECONDS:-5}
+    depends_on:
+      catalog-db-init:
+        condition: service_completed_successfully
+
+  #  Frontend
+  frontend:
+    image: nginx:1.27.3-alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+
+volumes:
+  pantry-db-data:
+  catalog-db-data:
