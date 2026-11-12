@@ -1,0 +1,9 @@
+# Shared by pantry-service and catalog-service (ruff finds this file from either folder).
+line-length = 100
+target-version = "py312"
+# Where first-party code lives, so "app" sorts as first-party in both services.
+src = ["pantry-service", "catalog-service"]
+
+[lint]
+# E/W pycodestyle, F pyflakes, I import order, B bugbear, UP pyupgrade
+select = ["E", "W", "F", "I", "B", "UP"]

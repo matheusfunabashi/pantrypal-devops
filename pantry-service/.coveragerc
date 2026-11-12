@@ -1,0 +1,5 @@
+# Coverage measures the core logic, so the app wiring and migrations are left out.
+[run]
+omit =
+    app/main.py
+    migrations/*

@@ -2,7 +2,9 @@ import os
 
 # Placeholder defaults for local development. Real values come from docker-compose / .env.
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
-CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:8080").split(",") if o.strip()]
+CORS_ORIGINS = [
+    o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:8080").split(",") if o.strip()
+]
 
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "1433"))
