@@ -11,10 +11,12 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
+COPY alembic.ini start.sh ./
+COPY migrations ./migrations
 
 USER appuser
 
 EXPOSE 8000
 
-# --no-access-log: our middleware already writes one line per request.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
+# start.sh runs the migrations (with retries), then uvicorn.
+CMD ["./start.sh"]
