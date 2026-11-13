@@ -2,7 +2,7 @@
 #
 #   test     lint (ruff), format check, tests with a coverage gate (pytest-cov)
 #            and a dependency audit (pip-audit), for each service
-#   image    build each service image and check that its /health answers
+#   image    build each service image and check it runs as non-root
 #   compose  bring up the full stack with docker compose and check every /health
 #
 # The workflow_call trigger lets the CD workflow reuse this one as its first
@@ -75,41 +75,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - service: pantry-service
-            port: 8000
-          - service: catalog-service
-            port: 8001
+        service: [pantry-service, catalog-service]
     steps:
       - uses: actions/checkout@v4
 
       - name: Build image
         run: docker build -t pantrypal-${{ matrix.service }}:ci ./${{ matrix.service }}
 
-      - name: Start container and check /health
+      # The services run database migrations on startup, so /health cannot be
+      # checked on a lone container. The compose job below checks it with the
+      # databases up.
+      - name: Check the image runs as non-root
         run: |
-          docker run -d --name svc -p ${{ matrix.port }}:8000 pantrypal-${{ matrix.service }}:ci
-          for i in $(seq 1 30); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:${{ matrix.port }}/health" || true)
-            if [ "$code" = "200" ]; then
-              echo "/health returned 200"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "/health never returned 200 (last code: $code)"
-          docker logs svc
-          exit 1
-
-      - name: Check the container runs as non-root
-        run: |
-          uid=$(docker exec svc id -u)
+          uid=$(docker run --rm --entrypoint id pantrypal-${{ matrix.service }}:ci -u)
           echo "container uid: $uid"
           test "$uid" != "0"
-
-      - name: Container logs
-        if: always()
-        run: docker logs svc || true
 
   compose:
     name: compose stack
