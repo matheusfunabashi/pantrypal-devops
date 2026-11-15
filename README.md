@@ -4,7 +4,7 @@ PantryPal helps people keep track of the food they have at home and check a prod
 
 The full product scope, rules and out-of-scope list are in [docs/product-scope.md](docs/product-scope.md).
 
-**Live URL:** not deployed yet. The first Azure deployment is planned for Sprint 1 (11–18 November 2026).
+**Live URL:** https://sddbcsaig3bui1ffa64df.z1.web.core.windows.net (the health-page skeleton, first deployed on 14 November 2026). From the merge of the CD pipeline onwards, every merge to `main` deploys here.
 
 ## Features
 
@@ -13,7 +13,7 @@ The full product scope, rules and out-of-scope list are in [docs/product-scope.m
 | Look up a product by barcode (name, brand, image, Nutri-Score) | Planned, Sprint 1 |
 | Pantry: add, view, update quantity, delete | Planned, Sprint 1 |
 | Check before you buy: look up without saving | Planned, Sprint 2 |
-| Service health page | Done (local) |
+| Service health page | Running locally and on Azure |
 
 Optional, only after the MVP works: camera barcode scanning, expiry dates, running-low view.
 
@@ -25,13 +25,13 @@ PantryPal has exactly two backend services, each with its own database, and a st
 - **Catalog Service** (FastAPI) looks products up on Open Food Facts and caches the results in its own database.
 - **Frontend** is plain HTML, CSS and JavaScript. It runs in the browser and calls both services directly. Each service only accepts cross-origin requests from the frontend's origin (CORS).
 
-Target deployment on Azure (Sprint 1):
+Personal-account deployment on Azure (Sprint 1):
 
 ```mermaid
 flowchart LR
     user([Browser])
     subgraph azure[Azure resource group]
-        ui[Static Web App<br/>frontend]
+        ui[Storage static website<br/>frontend]
         subgraph aca[Container Apps environment]
             pantry[Pantry Service<br/>Container App]
             catalog[Catalog Service<br/>Container App]
@@ -54,11 +54,11 @@ flowchart LR
     aca -.->|stdout logs| logs
 ```
 
-Locally, Docker Compose runs the same two services against two SQL Server containers. nginx serves the static frontend on port 8080 for local development only. In Azure the frontend is hosted on Static Web Apps.
+Locally, Docker Compose runs the same two services against two SQL Server containers. nginx serves the static frontend on port 8080 for local development only. While the team deploys to a personal Azure account instead of the group's institution account, the frontend is hosted as an Azure Storage static website. Static Web Apps isn't available in the regions that subscription allows, and the team was asked to use Storage hosting for the time being.
 
 | Component | Local URL | Azure |
 | --- | --- | --- |
-| Frontend | http://localhost:8080 | Static Web App (Sprint 1) |
+| Frontend | http://localhost:8080 | Storage static website |
 | Pantry Service | http://localhost:8000 | Container App (Sprint 1) |
 | Catalog Service | http://localhost:8001 | Container App (Sprint 1) |
 | Pantry database | localhost:1433 (SQL Server 2022) | Azure SQL serverless |
@@ -78,6 +78,7 @@ pantrypal-devops/
 ├── catalog-service/     FastAPI service: product lookup and cache (app/, tests/, Dockerfile)
 ├── frontend/            Static UI: index.html, styles.css, app.js, config.js
 ├── db/                  create-app-login.sh, creates each service's own SQL login locally
+├── infra/               setup.sh and create-db-users.sh, the Azure setup scripts
 ├── docs/                Product scope, Scrum documents
 ├── docker-compose.yml   Local stack
 └── .env.example         Template for the local .env file
@@ -162,22 +163,26 @@ Linting, formatting and the coverage threshold will run in GitHub Actions from S
 
 ## Azure setup
 
-Planned for Sprint 1. The setup will be scripted or written as infrastructure as code in this repository, so it can be reproduced without manual portal changes. All resources go in the group's existing resource group and use the group prefix:
+Sprint 1 uses @Thecoolss's personal Azure subscription, with a dedicated project
+resource group and a GitHub deployment identity scoped to that group.
 
-- 2 Azure Container Apps on the Consumption plan, scaling to zero, maximum 1 replica
-- 2 serverless Azure SQL databases with auto-pause
-- 1 Azure Static Web App for the frontend
-- Container images in GitHub Container Registry, tagged with the commit SHA
-- Logs in the Log Analytics workspace of the Container Apps environment
+Follow [the personal Azure setup runbook](docs/azure-personal-setup.md) for naming,
+resource creation, database users, GitHub secrets and variables, deployment,
+verification, and password rotation. It accounts for existing unrelated projects.
 
-This section will document the exact commands once the setup exists.
+The CD stage 2 workflow is pending review. The initial main skeleton has been
+deployed during infrastructure setup. Feature smoke tests are enabled only after
+their endpoints are deployed. GitHub deployment uses a main-only OIDC managed
+identity and uploads the frontend to Storage.
 
 ## Documentation
 
 - [Product scope](docs/product-scope.md)
 - [Definition of Done](docs/scrum/definition-of-done.md)
 - [AI usage](AI_USAGE.md)
-- Sprint records, decision records (`docs/decisions.md`) and the data model (`docs/data-model.md`) will be added as the project progresses.
+- [Decision records](docs/decisions.md)
+- [Personal Azure setup runbook](docs/azure-personal-setup.md)
+- Sprint records are in `docs/scrum/`. The data model (`docs/data-model.md`) will be added as the project progresses.
 
 ## Team
 
