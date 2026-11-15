@@ -1,12 +1,24 @@
 # CD for PantryPal. Runs on every push to main (a merged pull request) and by hand.
 #
-#   ci      the whole CI workflow (ci.yml), reused through workflow_call.
-#           Nothing below runs unless every CI job passed on this commit.
-#   images  build both service images and push them to GitHub Container Registry,
-#           tagged with the commit SHA (and latest)
+#   ci               the whole CI workflow (ci.yml), reused through workflow_call.
+#                    Nothing below runs unless every CI job passed on this commit.
+#   images           build both service images and push them to GHCR, tagged with
+#                    the commit SHA (and latest)
+#   deploy-services  update both Container Apps to the new image, with env vars and
+#                    the DB password as a secret
+#   deploy-ui        write config.js with the service URLs, deploy the UI to the
+#                    Storage static website
+#   health-check     poll /health on both services; fail if either is not 200 in time
+#   smoke-test       (S1-14) one read-only request per service after health is green
 #
-# Stage 2 (S1-04) adds the Azure jobs after images: deploy both Container Apps,
-# deploy the UI to Static Web Apps, then check /health on both services.
+# Needs these GitHub Actions secrets and variables (infra/configure-github.sh
+# sets them):
+#   secrets:   PANTRY_DB_APP_PASSWORD, CATALOG_DB_APP_PASSWORD
+#   variables: AZURE_RG, PREFIX, SQL_SERVER_FQDN, PANTRY_URL, CATALOG_URL,
+#              UI_ORIGIN, OFF_USER_AGENT, STORAGE_ACCOUNT,
+#              AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID,
+#              ENABLE_FEATURE_SMOKE_TESTS
+
 
 name: CD
 
@@ -45,21 +57,17 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
-
       # GHCR image names must be lower case; the repository owner may not be.
       - name: Compute image name
         id: image
         run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/pantrypal-${{ matrix.service }}" >> "$GITHUB_OUTPUT"
-
       - uses: docker/setup-buildx-action@v3
-
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -74,3 +82,168 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  deploy-services:
+    name: deploy ${{ matrix.svc.name }}
+    permissions:
+      contents: read
+      id-token: write
+    needs: images
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    strategy:
+      max-parallel: 1
+      # Deploy one at a time; if one fails, still know the other's result.
+      fail-fast: false
+      matrix:
+        svc:
+          - name: pantry
+            user: pantry_user
+          - name: catalog
+            user: catalog_user
+    steps:
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Configure and deploy the service
+        env:
+          AZURE_RG: ${{ vars.AZURE_RG }}
+          PREFIX: ${{ vars.PREFIX }}
+          SQL_SERVER_FQDN: ${{ vars.SQL_SERVER_FQDN }}
+          UI_ORIGIN: ${{ vars.UI_ORIGIN }}
+          CATALOG_URL: ${{ vars.CATALOG_URL }}
+          OFF_USER_AGENT: ${{ vars.OFF_USER_AGENT }}
+          PANTRY_DB_APP_PASSWORD: ${{ secrets.PANTRY_DB_APP_PASSWORD }}
+          CATALOG_DB_APP_PASSWORD: ${{ secrets.CATALOG_DB_APP_PASSWORD }}
+          SERVICE: ${{ matrix.svc.name }}
+          DB_USER: ${{ matrix.svc.user }}
+          GH_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          if [ "$SERVICE" = pantry ]; then
+            DB_APP_PASSWORD="$PANTRY_DB_APP_PASSWORD"
+          else
+            DB_APP_PASSWORD="$CATALOG_DB_APP_PASSWORD"
+          fi
+          : "${AZURE_RG:?}" "${PREFIX:?}" "${SQL_SERVER_FQDN:?}" "${UI_ORIGIN:?}"
+          : "${DB_APP_PASSWORD:?}" "${CATALOG_URL:?}" "${OFF_USER_AGENT:?}"
+          az containerapp ingress update -g "$AZURE_RG" -n "$PREFIX-$SERVICE" \
+            --target-port 8000 --output none
+          az containerapp secret set -g "$AZURE_RG" -n "$PREFIX-$SERVICE" \
+            --secrets "db-password=$DB_APP_PASSWORD" --output none
+          environment=(
+            "DB_HOST=$SQL_SERVER_FQDN" "DB_PORT=1433"
+            "DB_NAME=$PREFIX-$SERVICE-db" "DB_USER=$DB_USER"
+            "DB_PASSWORD=secretref:db-password"
+            "CORS_ORIGINS=$UI_ORIGIN" "LOG_LEVEL=INFO"
+          )
+          if [ "$SERVICE" = pantry ]; then
+            environment+=( "CATALOG_URL=$CATALOG_URL" "CATALOG_TIMEOUT_SECONDS=10" )
+          else
+            environment+=( "OFF_USER_AGENT=$OFF_USER_AGENT" "CACHE_TTL_DAYS=7" )
+          fi
+          az containerapp update -g "$AZURE_RG" -n "$PREFIX-$SERVICE" \
+            --image "ghcr.io/${GH_OWNER,,}/pantrypal-$SERVICE:$GITHUB_SHA" \
+            --set-env-vars "${environment[@]}" --output none
+
+  deploy-ui:
+    name: deploy UI
+    permissions:
+      contents: read
+      id-token: write
+    needs: deploy-services
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Write config.js with the Azure service URLs
+        # The committed config.js keeps localhost for local dev; CD overwrites it
+        # with the deployed URLs before uploading.
+        env:
+          PANTRY_URL: ${{ vars.PANTRY_URL }}
+          CATALOG_URL: ${{ vars.CATALOG_URL }}
+        run: |
+          node -e 'const urls = {pantryUrl: process.env.PANTRY_URL, catalogUrl: process.env.CATALOG_URL}; for (const value of Object.values(urls)) { if (!value || new URL(value).protocol !== "https:") throw new Error("Expected HTTPS service URL"); } require("fs").writeFileSync("frontend/config.js", "window.API_CONFIG = " + JSON.stringify(urls) + ";\n");'
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to Storage static website
+        env:
+          STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          : "${STORAGE_ACCOUNT:?}"
+          az storage blob upload-batch --account-name "$STORAGE_ACCOUNT" \
+            --auth-mode login --destination '$web' --source frontend --overwrite true \
+            --content-cache-control no-cache --output none
+
+  health-check:
+    name: health check
+    needs: deploy-ui
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Wait for both services to return 200
+        env:
+          PANTRY_URL: ${{ vars.PANTRY_URL }}
+          CATALOG_URL: ${{ vars.CATALOG_URL }}
+        run: |
+          set -euo pipefail
+          check() {
+            local url="$1" deadline=$((SECONDS + 300)) remaining code
+            while (( SECONDS < deadline )); do
+              remaining=$((deadline - SECONDS))
+              code=$(curl -s -o /dev/null -w '%{http_code}' \
+                --max-time "$((remaining < 10 ? remaining : 10))" "$url" || true)
+              if [ "$code" = 200 ]; then
+                echo "$url -> 200"
+                return 0
+              fi
+              remaining=$((deadline - SECONDS))
+              if (( remaining > 0 )); then
+                sleep "$((remaining < 10 ? remaining : 10))"
+              fi
+            done
+            echo "$url did not return 200 within 5 minutes" >&2
+            return 1
+          }
+          check "$PANTRY_URL/health" &
+          pantry_pid=$!
+          check "$CATALOG_URL/health" &
+          catalog_pid=$!
+          result=0
+          wait "$pantry_pid" || result=1
+          wait "$catalog_pid" || result=1
+          exit "$result"
+
+  smoke-test:
+    name: smoke test
+    needs: health-check
+    if: github.ref == 'refs/heads/main' && vars.ENABLE_FEATURE_SMOKE_TESTS == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Read-only checks against the deployed services
+        # S1-14. Reads only, so it never changes production data. A known barcode
+        # confirms the catalog lookup path; /pantry confirms the pantry DB path.
+        run: |
+          set -e
+          echo "Catalog lookup:"
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 \
+            "${{ vars.CATALOG_URL }}/products/3017620422003")
+          echo "  /products/3017620422003 -> $code"
+          test "$code" = "200"
+          echo "Pantry list:"
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 \
+            "${{ vars.PANTRY_URL }}/pantry")
+          echo "  /pantry -> $code"
+          test "$code" = "200"
