@@ -68,3 +68,49 @@ button:disabled {
   color: #c33b3b;
   font-weight: bold;
 }
+
+.message {
+  min-height: 1.2em;
+  margin: 12px 0 0;
+  color: #68756c;
+}
+
+.message.error {
+  color: #c33b3b;
+  font-weight: bold;
+}
+
+.product {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  margin-top: 16px;
+}
+
+.product[hidden],
+.product img[hidden] {
+  display: none;
+}
+
+.product img {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+  border: 1px solid #e1e5e1;
+  border-radius: 8px;
+  background: white;
+}
+
+.product dl {
+  margin: 0;
+}
+
+.product dt {
+  font-size: 13px;
+  color: #68756c;
+}
+
+.product dd {
+  margin: 0 0 8px;
+  font-weight: bold;
+}

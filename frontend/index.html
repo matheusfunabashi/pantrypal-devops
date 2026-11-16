@@ -17,17 +17,29 @@
     <section class="card">
       <h2>Find a product</h2>
 
-      <label for="barcode">Product barcode</label>
-      <input
-        id="barcode"
-        type="text"
-        inputmode="numeric"
-        placeholder="Enter a barcode"
-        disabled
-      >
+      <form id="lookup-form" novalidate>
+        <label for="barcode">Product barcode</label>
+        <input
+          id="barcode"
+          type="text"
+          inputmode="numeric"
+          autocomplete="off"
+          placeholder="Enter 8 to 14 digits"
+        >
 
-      <button disabled>Look up product</button>
-      <p class="hint">Coming in Sprint 1.</p>
+        <button id="lookup-button" type="submit">Look up product</button>
+      </form>
+
+      <p id="lookup-message" class="message" role="status"></p>
+
+      <div id="lookup-result" class="product" hidden>
+        <img id="product-image" alt="" hidden>
+        <dl>
+          <dt>Name</dt><dd id="product-name"></dd>
+          <dt>Brand</dt><dd id="product-brand"></dd>
+          <dt>Nutri-Score</dt><dd id="product-nutriscore"></dd>
+        </dl>
+      </div>
     </section>
 
     <section class="card">
@@ -55,6 +67,7 @@
   </main>
 
   <script src="config.js"></script>
+  <script src="lookup.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
