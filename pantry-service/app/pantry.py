@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -43,15 +43,33 @@ def _find_by_barcode(session: Session, barcode: str) -> PantryItem | None:
     return session.scalars(select(PantryItem).where(PantryItem.barcode == barcode)).first()
 
 
-def _increment(session: Session, item: PantryItem, quantity: int) -> PantryItem:
-    new_quantity = item.quantity + quantity
-    if new_quantity > MAX_QUANTITY:
-        raise QuantityTooHigh(new_quantity)
-    item.quantity = new_quantity
-    item.updated_at = _utc_now()
+def _try_increment(session: Session, barcode: str, quantity: int) -> PantryItem | None:
+    """Add to an existing item's quantity in one atomic UPDATE.
+
+    The database does "quantity = quantity + n" itself, so two requests adding the
+    same barcode at the same time both count; neither overwrites the other with a
+    stale value. The 999 limit is part of the same statement.
+
+    Returns the updated item, or None if no item has this barcode.
+    Raises QuantityTooHigh if the item exists but the total would go above 999.
+    """
+    result = session.execute(
+        update(PantryItem)
+        .where(
+            PantryItem.barcode == barcode,
+            PantryItem.quantity + quantity <= MAX_QUANTITY,
+        )
+        .values(quantity=PantryItem.quantity + quantity, updated_at=_utc_now())
+        .execution_options(synchronize_session=False)
+    )
+    if result.rowcount == 0:
+        session.rollback()
+        if _find_by_barcode(session, barcode) is not None:
+            raise QuantityTooHigh(barcode)
+        return None
     session.commit()
-    session.refresh(item)
-    return item
+    # commit() expires loaded objects, so this reads the new values from the database.
+    return _find_by_barcode(session, barcode)
 
 
 def add_item(
@@ -64,9 +82,9 @@ def add_item(
     - New barcode: the product details come from Catalog and are saved as snapshots.
       ProductNotFound and CatalogUnavailable from Catalog are passed on to the caller.
     """
-    existing = _find_by_barcode(session, barcode)
+    existing = _try_increment(session, barcode, quantity)
     if existing is not None:
-        return _increment(session, existing, quantity), False
+        return existing, False
 
     product = catalog.get_product(barcode)
     nutri_score = product.get("nutri_score")
@@ -85,9 +103,9 @@ def add_item(
         # Another request added the same barcode between our check and our insert.
         # The unique constraint stopped the duplicate, so add to that row instead.
         session.rollback()
-        existing = _find_by_barcode(session, barcode)
+        existing = _try_increment(session, barcode, quantity)
         if existing is None:
             raise
-        return _increment(session, existing, quantity), False
+        return existing, False
     session.refresh(item)
     return item, True

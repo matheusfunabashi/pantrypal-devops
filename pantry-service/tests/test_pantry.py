@@ -1,5 +1,6 @@
 import pytest
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 from app import pantry
 from app.catalog_client import CatalogUnavailable, NotConnectedCatalog, ProductNotFound
@@ -106,17 +107,17 @@ def test_get_item_and_missing_item(session, catalog):
 
 def test_duplicate_insert_race_becomes_an_increment(session, catalog, monkeypatch):
     # Simulate another request inserting the same barcode right after our check:
-    # the first lookup sees nothing, but the row already exists when we insert.
+    # the first increment attempt sees no row, but the row exists when we insert.
     session.add(PantryItem(barcode=BARCODE, quantity=1, name_snapshot="Nutella"))
     session.commit()
-    real_find = pantry._find_by_barcode
+    real_try = pantry._try_increment
     calls = {"n": 0}
 
-    def find_misses_once(s, barcode):
+    def misses_once(s, barcode, quantity):
         calls["n"] += 1
-        return None if calls["n"] == 1 else real_find(s, barcode)
+        return None if calls["n"] == 1 else real_try(s, barcode, quantity)
 
-    monkeypatch.setattr(pantry, "_find_by_barcode", find_misses_once)
+    monkeypatch.setattr(pantry, "_try_increment", misses_once)
 
     item, created = pantry.add_item(session, BARCODE, 2, catalog)
 
@@ -125,7 +126,7 @@ def test_duplicate_insert_race_becomes_an_increment(session, catalog, monkeypatc
 
 
 def test_other_integrity_errors_are_not_hidden(session, catalog, monkeypatch):
-    monkeypatch.setattr(pantry, "_find_by_barcode", lambda s, b: None)
+    monkeypatch.setattr(pantry, "_try_increment", lambda s, b, q: None)
 
     def failing_commit():
         raise IntegrityError("INSERT", {}, Exception("some other constraint"))
@@ -134,6 +135,35 @@ def test_other_integrity_errors_are_not_hidden(session, catalog, monkeypatch):
 
     with pytest.raises(IntegrityError):
         pantry.add_item(session, BARCODE, 1, catalog)
+
+
+def test_concurrent_increments_are_not_lost(engine, catalog):
+    # Regression test for lost updates. Request A has already loaded the item
+    # (quantity 1) when request B adds 2. A then adds 3. The database must end at
+    # 1 + 2 + 3 = 6. Reading the quantity in Python and writing it back would give
+    # 1 + 3 = 4 and lose B's addition.
+    with Session(engine) as setup:
+        pantry.add_item(setup, BARCODE, 1, catalog)
+
+    with Session(engine) as request_a, Session(engine) as request_b:
+        stale = pantry.get_item(request_a, 1)
+        assert stale.quantity == 1
+
+        pantry.add_item(request_b, BARCODE, 2, catalog)
+        item, created = pantry.add_item(request_a, BARCODE, 3, catalog)
+
+    assert created is False
+    assert item.quantity == 6
+
+
+def test_increment_updates_updated_at(session, catalog):
+    item, _ = pantry.add_item(session, BARCODE, 1, catalog)
+    first_updated = item.updated_at
+
+    item, _ = pantry.add_item(session, BARCODE, 1, catalog)
+
+    assert item.updated_at >= first_updated
+    assert item.created_at <= item.updated_at
 
 
 def test_placeholder_catalog_is_unavailable():
