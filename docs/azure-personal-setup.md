@@ -19,7 +19,7 @@ are unchanged.
 
 The university tenant also blocks application registrations. GitHub authenticates
 through OIDC and a user-assigned managed identity, with trust restricted to
-`repo:matheusfunabashi/pantrypal-devops:ref:refs/heads/main`.
+`repo:matheusfunabashi@208869383/pantrypal-devops@1450359550:ref:refs/heads/main`.
 There is no Azure client secret. The identity has Contributor on this project's
 resource group and Storage Blob Data Contributor on this project's UI account.
 
@@ -135,24 +135,51 @@ federated credential. No AZURE_CREDENTIALS or Static Web Apps token is needed.
 
 ## Deployment and verification
 
-Make both GHCR packages public. Review and merge the deployment PR with Matheus's
-approval and green CI. CD publishes SHA-tagged images, configures services, writes
+Make both GHCR packages public. Changes deploy after a reviewed PR merges to
+`main` and CI passes. CD publishes SHA-tagged images, configures services, writes
 frontend/config.js, uploads only frontend files to Storage's `$web` container
 using OIDC, and checks both /health endpoints concurrently for up to five minutes.
 The frontend files are public; secrets must never be placed in that directory.
 
-Until the deployment workflow is merged, the initial bootstrap may be configured
-from the same current main SHA. This verifies initial infrastructure only and
-does not count as proof of automated delivery through a reviewed merge.
+The deployment workflow merged in PR #50. After correcting the live OIDC trust,
+[CD run 43915006087](https://github.com/matheusfunabashi/pantrypal-devops/actions/runs/43915006087)
+successfully deployed commit `2f8005de27a130b197ad79e3248ddaa1b7d5513d` on
+16 November 2026. This verifies automated delivery; feature acceptance is separate.
 
 Open UI_ORIGIN and confirm both services show Healthy. Check CORS_ORIGINS equals
 UI_ORIGIN exactly, with no trailing slash. Verify deployed image SHA tags, replicas
-0–1, SQL serverless capacity and auto-pause, migration logs after database PRs land,
+0–1, SQL serverless capacity and auto-pause, migration logs for both services,
 and request logs in the Container Apps environment's Log Analytics workspace.
 
 Enable feature smoke tests only after /products/{barcode} and /pantry are deployed.
 Record the actual deployment result, hosting choice, and identity choice in
-docs/scrum/sprint-1.md and ADR-3. Add the live URL to README after verification.
+docs/scrum/sprint-1.md and ADR-3. Keep the live URL and deployment evidence in README current.
+
+## Troubleshooting Azure OIDC login
+
+`AADSTS700213` means the presented token has no matching federated credential.
+Compare the subject, issuer and audience in the `Azure login` job with the
+`github-main` credential on the user-assigned identity. This repository's observed
+subject includes numeric owner and repository IDs; the old plain-name subject
+is not equivalent.
+
+To repair the existing credential using the configuration variables above:
+
+```bash
+az identity federated-credential update \
+  -g "$RG" --identity-name "$PREFIX-github" -n github-main \
+  --issuer https://token.actions.githubusercontent.com \
+  --subject 'repo:matheusfunabashi@208869383/pantrypal-devops@1450359550:ref:refs/heads/main' \
+  --audiences api://AzureADTokenExchange
+```
+
+PR #53 updates `setup-github-identity.sh` to derive the ID-bearing subject and
+repair existing credentials. Until that fix is merged, the setup script creates
+the old subject for a new identity and skips an existing credential; use the
+repair command after provisioning. The fixed script also accepts `OIDC_SUBJECT`
+for an exact subject copied from the workflow if the GitHub template changes.
+After correcting trust, rerun the failed CD jobs and check the entire deployment,
+not just the login step.
 
 ## Password rotation
 
@@ -178,7 +205,7 @@ Coordinate rotation because existing revisions temporarily retain old credential
 - The existing monthly budget of 30 applies to the entire subscription, including
   the unrelated project; notifications go to the hosting member.
 
-This was an initial setup deployment, not a GitHub CD run. The local CD changes
-remain uncommitted and require a reviewed PR before automated delivery is proven.
-Current main provides the health-page skeleton; database migrations and product
-features remain dependent on the team's feature PRs.
+These checks describe the initial setup deployment, not the current release.
+The successful CD run above includes both database migrations and the Catalog
+lookup backend (#33, #47 and #51). Pantry add/view, its real Catalog client, and
+the feature UI still require their own deployment and acceptance evidence.

@@ -4,13 +4,13 @@ PantryPal helps people keep track of the food they have at home and check a prod
 
 The full product scope, rules and out-of-scope list are in [docs/product-scope.md](docs/product-scope.md).
 
-**Live URL:** https://sddbcsaig3bui1ffa64df.z1.web.core.windows.net (the health-page skeleton, first deployed on 14 November 2026). From the merge of the CD pipeline onwards, every merge to `main` deploys here.
+**Live URL:** https://sddbcsaig3bui1ffa64df.z1.web.core.windows.net (public frontend). The first successful automated deployment completed on 16 November 2026; merges to `main` deploy after CI passes.
 
 ## Features
 
 | Feature | Status |
 | --- | --- |
-| Look up a product by barcode (name, brand, image, Nutri-Score) | Planned, Sprint 1 |
+| Look up a product by barcode (name, brand, image, Nutri-Score) | Backend deployed; UI pending (#52) |
 | Pantry: add, view, update quantity, delete | Planned, Sprint 1 |
 | Check before you buy: look up without saving | Planned, Sprint 2 |
 | Service health page | Running locally and on Azure |
@@ -147,7 +147,7 @@ Each service has its own tests. From the repository root, with Python 3.12:
 cd pantry-service
 python -m venv .venv
 source .venv/bin/activate        # Windows PowerShell: .venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 python -m pytest
 deactivate
 ```
@@ -156,10 +156,10 @@ Repeat in `catalog-service/`. Without a local Python, you can run the tests in t
 
 ```bash
 docker run --rm -v "$PWD/pantry-service:/app" -w /app python:3.12.16-slim-bookworm \
-  sh -c "pip install -q -r requirements.txt && python -m pytest -p no:cacheprovider"
+  sh -c "pip install -q -r requirements-dev.txt && python -m pytest -p no:cacheprovider"
 ```
 
-Linting, formatting and the coverage threshold will run in GitHub Actions from Sprint 1.
+Linting, formatting, dependency auditing and the coverage threshold run in GitHub Actions.
 
 ## Azure setup
 
@@ -170,10 +170,13 @@ Follow [the personal Azure setup runbook](docs/azure-personal-setup.md) for nami
 resource creation, database users, GitHub secrets and variables, deployment,
 verification, and password rotation. It accounts for existing unrelated projects.
 
-The CD stage 2 workflow is pending review. The initial main skeleton has been
-deployed during infrastructure setup. Feature smoke tests are enabled only after
-their endpoints are deployed. GitHub deployment uses a main-only OIDC managed
-identity and uploads the frontend to Storage.
+The deployment workflow merged in #50. After repairing OIDC trust,
+[CD run 43915006087](https://github.com/matheusfunabashi/pantrypal-devops/actions/runs/43915006087)
+successfully deployed `2f8005d` (including the Catalog lookup backend and both
+database migrations). Feature smoke tests remain disabled until lookup and
+`/pantry` both work on Azure. GitHub deployment uses a main-only OIDC managed
+identity and uploads the frontend to Storage. Feature acceptance is tracked
+separately from pipeline success.
 
 ## Documentation
 
@@ -188,8 +191,8 @@ identity and uploads the frontend to Storage.
 
 | GitHub | Main area |
 | --- | --- |
-| [@Thecoolss](https://github.com/Thecoolss) | Product, frontend, Pantry Service |
-| [@matheusfunabashi](https://github.com/matheusfunabashi) | Repository, Docker Compose, Azure and CI/CD |
-| [@gustaveems](https://github.com/gustaveems) | Backend services, Catalog Service, monitoring |
+| [@Thecoolss](https://github.com/Thecoolss) | Sprint 1 Scrum Master; Azure, CD and frontend deployment |
+| [@matheusfunabashi](https://github.com/matheusfunabashi) | Pantry Service and UI, Docker Compose, repository settings |
+| [@gustaveems](https://github.com/gustaveems) | Sprint 1 Product Owner; Catalog Service, lookup UI and CI |
 
 Product Owner and Scrum Master rotate each sprint. Who held each role is recorded in `docs/scrum/sprint-N.md`.
