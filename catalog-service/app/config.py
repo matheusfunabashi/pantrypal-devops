@@ -14,3 +14,8 @@ DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 
 OFF_BASE_URL = os.getenv("OFF_BASE_URL", "https://world.openfoodfacts.org")
 OFF_TIMEOUT_SECONDS = float(os.getenv("OFF_TIMEOUT_SECONDS", "5"))
+OFF_USER_AGENT = os.getenv(
+    "OFF_USER_AGENT",
+    "PantryPal/1.0 (student project; https://github.com/matheusfunabashi/pantrypal-devops)",
+)
+CACHE_TTL_DAYS = int(os.getenv("CACHE_TTL_DAYS", "7"))
