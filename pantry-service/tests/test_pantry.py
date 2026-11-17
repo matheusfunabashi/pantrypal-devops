@@ -3,7 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import pantry
-from app.catalog_client import CatalogUnavailable, NotConnectedCatalog, ProductNotFound
+from app.catalog_client import CatalogUnavailable, ProductNotFound
 from app.models import PantryItem
 from tests.conftest import NUTELLA, FakeCatalog
 
@@ -164,8 +164,3 @@ def test_increment_updates_updated_at(session, catalog):
 
     assert item.updated_at >= first_updated
     assert item.created_at <= item.updated_at
-
-
-def test_placeholder_catalog_is_unavailable():
-    with pytest.raises(CatalogUnavailable):
-        NotConnectedCatalog().get_product(BARCODE)

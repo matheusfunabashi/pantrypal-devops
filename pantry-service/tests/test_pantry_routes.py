@@ -95,3 +95,38 @@ def test_catalog_down_returns_503(catalog_down):
 
     assert response.status_code == 503
     assert response.json() == {"detail": "Product lookup is temporarily unavailable"}
+
+
+def test_catalog_unreachable_returns_503_with_real_client(client):
+    import httpx
+
+    from app.catalog_client import HttpCatalog, get_catalog
+    from app.main import app
+
+    def refuse(request):
+        raise httpx.ConnectError("connection refused", request=request)
+
+    app.dependency_overrides[get_catalog] = lambda: HttpCatalog(
+        "http://catalog.test", 10, transport=httpx.MockTransport(refuse)
+    )
+
+    response = client.post("/pantry", json={"barcode": BARCODE, "quantity": 1})
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Product lookup is temporarily unavailable"}
+
+
+def test_existing_barcode_still_works_when_catalog_is_down(client, catalog):
+    from app.catalog_client import CatalogUnavailable, get_catalog
+    from app.main import app
+    from tests.conftest import FakeCatalog
+
+    client.post("/pantry", json={"barcode": BARCODE, "quantity": 1})
+    app.dependency_overrides[get_catalog] = lambda: FakeCatalog(error=CatalogUnavailable())
+
+    added = client.post("/pantry", json={"barcode": BARCODE, "quantity": 2})
+    listed = client.get("/pantry")
+
+    assert added.status_code == 200
+    assert added.json()["quantity"] == 3
+    assert listed.status_code == 200
