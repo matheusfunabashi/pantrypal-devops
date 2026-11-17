@@ -90,6 +90,10 @@ services:
       DB_PASSWORD: ${PANTRY_DB_APP_PASSWORD:?set PANTRY_DB_APP_PASSWORD in .env}
       CORS_ORIGINS: http://localhost:8080
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # Pantry calls Catalog for new barcodes. No depends_on on purpose: the pantry
+      # must keep working (list, update, delete) when catalog-service is down.
+      CATALOG_URL: http://catalog-service:8000
+      CATALOG_TIMEOUT_SECONDS: "10"
     depends_on:
       pantry-db-init:
         condition: service_completed_successfully
@@ -108,6 +112,10 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       OFF_BASE_URL: ${OFF_BASE_URL:-https://world.openfoodfacts.org}
       OFF_TIMEOUT_SECONDS: ${OFF_TIMEOUT_SECONDS:-5}
+      # Open Food Facts asks every app to identify itself. Override it in .env.
+      OFF_USER_AGENT: ${OFF_USER_AGENT:-PantryPal/1.0 (student project; https://github.com/matheusfunabashi/pantrypal-devops)}
+      # A cached product older than this many days is refreshed from Open Food Facts.
+      CACHE_TTL_DAYS: ${CACHE_TTL_DAYS:-7}
     depends_on:
       catalog-db-init:
         condition: service_completed_successfully
