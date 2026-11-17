@@ -16,17 +16,13 @@
 #   PREFIX              resource name prefix (e.g. sdd-3a-g3)
 #   SQL_ADMIN_USER      SQL server admin login (used only by create-db-users.sh)
 #   SQL_ADMIN_PASSWORD  SQL server admin password
-#   IMAGE_TAG           image tag to deploy first (a commit SHA, or "latest")
 #
-# Optional:
-#   SWA_LOCATION        Static Web Apps region (default westeurope; SWA exists in a
-#                       limited set of regions, so it is separate from LOCATION)
-#   GHCR_OWNER          GHCR owner for the images (default matheusfunabashi)
+#   STORAGE_ACCOUNT     globally unique storage account name for the static UI
 #
 # Usage:
-#   az login --service-principal -u <appId> -p <secret> --tenant <tenant>
-#   export SUBSCRIPTION=... RG=... LOCATION=westeurope PREFIX=sdd-3a-g3 \
-#          SQL_ADMIN_USER=... SQL_ADMIN_PASSWORD=... IMAGE_TAG=latest
+#   az login        (or az login --service-principal with the group's credentials)
+#   export SUBSCRIPTION=... RG=... LOCATION=germanywestcentral PREFIX=sdd-3a-g3 \
+#          SQL_ADMIN_USER=... SQL_ADMIN_PASSWORD=... STORAGE_ACCOUNT=...
 #   ./infra/setup.sh
 
 set -euo pipefail
@@ -37,9 +33,12 @@ set -euo pipefail
 : "${PREFIX:?set PREFIX}"
 : "${SQL_ADMIN_USER:?set SQL_ADMIN_USER}"
 : "${SQL_ADMIN_PASSWORD:?set SQL_ADMIN_PASSWORD}"
-: "${IMAGE_TAG:?set IMAGE_TAG}"
-SWA_LOCATION="${SWA_LOCATION:-westeurope}"
-GHCR_OWNER="${GHCR_OWNER:-matheusfunabashi}"
+: "${STORAGE_ACCOUNT:?set STORAGE_ACCOUNT (3–24 lowercase letters and digits)}"
+
+if [[ ! "$PREFIX" =~ ^[a-z][a-z0-9-]*[a-z0-9]$ ]] || (( ${#PREFIX} > 24 )); then
+  echo "PREFIX must be 2–24 lowercase letters, digits or hyphens, starting with a letter and ending with a letter or digit." >&2
+  exit 1
+fi
 
 # Resource names, all derived from the prefix.
 LOGS="${PREFIX}-logs"
@@ -49,9 +48,6 @@ PANTRY_APP="${PREFIX}-pantry"
 CATALOG_APP="${PREFIX}-catalog"
 PANTRY_DB="${PREFIX}-pantry-db"
 CATALOG_DB="${PREFIX}-catalog-db"
-SWA="${PREFIX}-ui"
-PANTRY_IMAGE="ghcr.io/${GHCR_OWNER}/pantrypal-pantry:${IMAGE_TAG}"
-CATALOG_IMAGE="ghcr.io/${GHCR_OWNER}/pantrypal-catalog:${IMAGE_TAG}"
 
 az account set --subscription "$SUBSCRIPTION"
 
@@ -104,31 +100,37 @@ create_db "$PANTRY_DB"
 create_db "$CATALOG_DB"
 
 create_app() {
-  local name="$1" image="$2"
+  local name="$1"
   echo "==> Container App: $name"
   if ! az containerapp show -g "$RG" -n "$name" >/dev/null 2>&1; then
-    # The images are public on GHCR, so no registry credentials are needed.
-    # Real environment variables and the DB password secret are set by the CD
-    # workflow on every deploy; here we only create the app with a first image.
     az containerapp create -g "$RG" -n "$name" --environment "$ENV" \
-      --image "$image" \
-      --ingress external --target-port 8000 \
+      --image mcr.microsoft.com/k8se/quickstart:latest \
+      --ingress external --target-port 80 \
+      --cpu 0.25 --memory 0.5Gi \
       --min-replicas 0 --max-replicas 1 -o none
   fi
 }
-create_app "$PANTRY_APP" "$PANTRY_IMAGE"
-create_app "$CATALOG_APP" "$CATALOG_IMAGE"
+create_app "$PANTRY_APP"
+create_app "$CATALOG_APP"
 
-echo "==> Static Web App: $SWA"
-if ! az staticwebapp show -g "$RG" -n "$SWA" >/dev/null 2>&1; then
-  az staticwebapp create -g "$RG" -n "$SWA" -l "$SWA_LOCATION" -o none
+echo "==> Storage static website: $STORAGE_ACCOUNT"
+if ! az storage account show -g "$RG" -n "$STORAGE_ACCOUNT" >/dev/null 2>&1; then
+  az storage account create -g "$RG" -n "$STORAGE_ACCOUNT" -l "$LOCATION" \
+    --sku Standard_LRS --kind StorageV2 --https-only true --min-tls-version TLS1_2 \
+    --allow-blob-public-access false -o none
 fi
+export AZURE_STORAGE_KEY
+AZURE_STORAGE_KEY=$(az storage account keys list -g "$RG" -n "$STORAGE_ACCOUNT" --query '[0].value' -o tsv)
+az storage blob service-properties update --account-name "$STORAGE_ACCOUNT" \
+  --static-website --index-document index.html -o none
+unset AZURE_STORAGE_KEY
 
 # Outputs the CD workflow and the README need.
 PANTRY_URL="https://$(az containerapp show -g "$RG" -n "$PANTRY_APP" --query properties.configuration.ingress.fqdn -o tsv)"
 CATALOG_URL="https://$(az containerapp show -g "$RG" -n "$CATALOG_APP" --query properties.configuration.ingress.fqdn -o tsv)"
 SQL_FQDN=$(az sql server show -g "$RG" -n "$SQL_SERVER" --query fullyQualifiedDomainName -o tsv)
-UI_HOST=$(az staticwebapp show -g "$RG" -n "$SWA" --query defaultHostname -o tsv)
+UI_ORIGIN=$(az storage account show -g "$RG" -n "$STORAGE_ACCOUNT" --query primaryEndpoints.web -o tsv)
+UI_ORIGIN="${UI_ORIGIN%/}"
 
 cat <<OUT
 
@@ -136,25 +138,19 @@ cat <<OUT
 PANTRY_URL       $PANTRY_URL
 CATALOG_URL      $CATALOG_URL
 SQL_SERVER_FQDN  $SQL_FQDN
-UI_ORIGIN        https://$UI_HOST
+UI_ORIGIN        $UI_ORIGIN
+STORAGE_ACCOUNT  $STORAGE_ACCOUNT
 
 Next:
   1. Create the per-service DB users:
-       export SQL_SERVER_FQDN=$SQL_FQDN
+       export SQL_SERVER=$SQL_SERVER
+       export PANTRY_DB_NAME=$PANTRY_DB CATALOG_DB_NAME=$CATALOG_DB
        export PANTRY_DB_APP_PASSWORD=...  CATALOG_DB_APP_PASSWORD=...
        ./infra/create-db-users.sh
-  2. Set these GitHub Actions secrets and variables (values above):
-       gh secret set AZURE_CREDENTIALS < sp.json
-       gh secret set PANTRY_DB_APP_PASSWORD
-       gh secret set CATALOG_DB_APP_PASSWORD
-       gh secret set AZURE_STATIC_WEB_APPS_API_TOKEN \\
-         "\$(az staticwebapp secrets list -g $RG -n $SWA --query properties.apiKey -o tsv)"
-       gh variable set AZURE_RG --body "$RG"
-       gh variable set PREFIX --body "$PREFIX"
-       gh variable set SQL_SERVER_FQDN --body "$SQL_FQDN"
-       gh variable set PANTRY_URL --body "$PANTRY_URL"
-       gh variable set CATALOG_URL --body "$CATALOG_URL"
-       gh variable set UI_ORIGIN --body "https://$UI_HOST"
-       gh variable set OFF_USER_AGENT --body "PantryPal/0.1 (<team-email>)"
+  2. Configure the main-only GitHub OIDC identity:
+       bash infra/setup-github-identity.sh
+  3. Set GitHub application secrets and deployment variables:
+       export OFF_USER_AGENT='PantryPal/0.1 (<team-email>)'
+       bash infra/configure-github.sh
 ==================================================================
 OUT

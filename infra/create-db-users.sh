@@ -46,11 +46,12 @@ set -euo pipefail
 : "${PANTRY_DB_NAME:?set PANTRY_DB_NAME (e.g. <prefix>-pantry-db)}"
 : "${CATALOG_DB_NAME:?set CATALOG_DB_NAME (e.g. <prefix>-catalog-db)}"
 
-SQL_IMAGE="mcr.microsoft.com/mssql-tools"
+SQL_IMAGE="mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04"
+export SQLCMDPASSWORD="$SQL_ADMIN_PASSWORD"
 SQL_FQDN=$(az sql server show -g "$RG" -n "$SQL_SERVER" --query fullyQualifiedDomainName -o tsv)
 
 # Add a temporary firewall rule for this machine, and always remove it on exit.
-MY_IP=$(curl -s https://api.ipify.org)
+MY_IP=$(curl --fail --silent --show-error --max-time 15 https://api.ipify.org)
 RULE="tmp-dbusers-$(date +%s)"
 cleanup() {
   az sql server firewall-rule delete -g "$RG" -s "$SQL_SERVER" -n "$RULE" -o none 2>/dev/null || true
@@ -70,12 +71,10 @@ create_user() {
   fi
   local pass_sql=${pass//\'/\'\'}
   echo "==> $user in database $db"
-  # -C trust the server cert; Azure SQL requires encryption. Admin password and
-  # SQL both arrive on the container's env / stdin, never in the process args.
   docker run --rm -i \
-    -e SQLCMDPASSWORD="$SQL_ADMIN_PASSWORD" \
-    "$SQL_IMAGE" /opt/mssql-tools/bin/sqlcmd \
-    -S "$SQL_FQDN" -U "$SQL_ADMIN_USER" -d "$db" -C -b <<SQL
+    -e SQLCMDPASSWORD \
+    "$SQL_IMAGE" /opt/mssql-tools18/bin/sqlcmd \
+    -S "$SQL_FQDN" -U "$SQL_ADMIN_USER" -d "$db" -N -b <<SQL
 SET NOCOUNT ON;
 IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'$user')
     CREATE USER [$user] WITH PASSWORD = N'$pass_sql';
