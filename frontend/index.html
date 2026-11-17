@@ -40,11 +40,33 @@
           <dt>Nutri-Score</dt><dd id="product-nutriscore"></dd>
         </dl>
       </div>
+
+      <form id="add-form" class="add-form" novalidate hidden>
+        <label for="add-quantity">Quantity</label>
+        <input
+          id="add-quantity"
+          type="number"
+          inputmode="numeric"
+          min="1"
+          max="999"
+          step="1"
+          value="1"
+        >
+        <button id="add-button" type="submit">Add to pantry</button>
+      </form>
+
+      <p id="add-message" class="message" role="status"></p>
     </section>
 
     <section class="card">
-      <h2>My pantry</h2>
-      <p>Your saved products will appear here.</p>
+      <div class="card-header">
+        <h2>My pantry</h2>
+        <button id="refresh-pantry" type="button" class="secondary">Refresh</button>
+      </div>
+
+      <p id="pantry-message" class="message" role="status"></p>
+      <p id="pantry-empty" class="hint" hidden>Your pantry is empty. Look up a product above to add it.</p>
+      <ul id="pantry-list" class="pantry-list"></ul>
     </section>
 
     <section class="card">
@@ -68,6 +90,7 @@
 
   <script src="config.js"></script>
   <script src="lookup.js"></script>
+  <script src="pantry.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
