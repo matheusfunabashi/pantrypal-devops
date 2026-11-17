@@ -1,5 +1,29 @@
 # Architecture decisions
 
+## 1. Two services and their layers
+Date: 2026-11-17
+Status: Decided
+
+Context: The brief asks for a small system of exactly two backend services plus a frontend, deployed independently by CI/CD. PantryPal has two natural halves: what the user owns (pantry items and quantities) and what the world knows (product details from Open Food Facts). The two change for different reasons and fail differently: the external API can be slow or down, the pantry must keep working.
+
+Decision: Split into a Pantry Service, which owns the inventory, and a Catalog Service, which owns external product data and its cache. Each has its own database and its own container image. The browser calls both services directly: the Catalog Service for lookups, the Pantry Service for the pantry. The Pantry Service also calls the Catalog Service over HTTP (`CATALOG_URL`, with a timeout) when the user adds a barcode it has not stored yet. Inside each service the code is layered: routes (HTTP only: parse the request, map errors to status codes), core logic (`pantry.py`, `products.py`: the rules, no HTTP types), clients (`catalog_client.py`, `off_client.py`: one place per external call, mockable) and database (`db.py`, `models.py`, Alembic migrations).
+
+Alternatives considered: 1. One service for everything: simpler, but the Open Food Facts failures and cache would sit in the same process and database as the user's data, and it would not meet the two-service requirement. 2. Three services (a separate Open Food Facts client, cache and pantry): more isolation than a student project needs, and every extra service adds a pipeline, an image and a Container App. 3. The Pantry Service as the only entry point, proxying every lookup: one origin for the browser, but the Pantry Service would be in the path of every lookup and would need to forward Catalog errors. 4. One shared database: easiest to join, but the services would share a schema and could no longer be changed or deployed independently.
+
+Consequences: A new barcode in the Pantry Service needs a network call, so it has to handle the Catalog Service being slow or down: a 10 second timeout, 404 mapped to 404, and timeouts, connection errors and 5xx mapped to 503. Everything that does not need the Catalog Service (listing, updating, deleting, adding a barcode already in the pantry) keeps working when it is down. The browser talks to two origins, so each service allows only the frontend's origin (CORS). There is a little duplicated structure in the two services, which we accept to keep them independent. Because external calls live in clients and rules in core logic, tests can mock the HTTP layer and run against an in-memory database.
+
+## 2. Storage, caching and data access
+Date: 2026-11-17
+Status: Decided
+
+Context: Each service needs durable storage, the Catalog Service must not hammer Open Food Facts, and the Pantry Service must keep working when the Catalog Service does not. Azure SQL serverless auto-pauses, so the first connection after idle can fail for about a minute while the database resumes. The team's earlier coursework already used SQL Server with pymssql, and found that SQLAlchemy 2.1.x broke its tests.
+
+Decision: 1. Two serverless Azure SQL databases, one per service, and SQL Server containers locally. 2. The Pantry Service stores a snapshot of the product (name, brand, image URL, Nutri-Score) in each `pantry_items` row, copied from the Catalog Service when the item is first added. 3. The Catalog Service caches every product it fetches in `cached_products` with `fetched_at`. A row younger than `CACHE_TTL_DAYS` (7) is returned with `source: cache` and Open Food Facts is not called. An older row is refreshed. If Open Food Facts is unavailable and any row exists, the stale row is returned instead of an error. Unknown barcodes are not cached. 4. Python access with SQLAlchemy 2.0.54 over `mssql+pymssql://` (pymssql 2.4.6, no ODBC driver in the image), and versioned schema changes with Alembic. Each container runs `alembic upgrade head` on startup, retrying while the database is unreachable, then starts uvicorn.
+
+Alternatives considered: 1. One database with two sets of tables: fewer resources, but it couples the services and breaks the rule that each service owns its data. 2. No snapshot, with the Pantry Service asking the Catalog Service every time it lists items: always fresh, but the pantry would break whenever the Catalog Service or Open Food Facts is down. 3. No cache: simplest, but every lookup would depend on Open Food Facts being fast and available, and we would risk its rate limits. 4. pyodbc with the Microsoft ODBC driver: the usual choice, but it adds a system package and a longer image build. 5. Creating tables with `create_all` or raw SQL at startup: no history and no safe way to change a table later, and migrations are required.
+
+Consequences: The pantry keeps working with the Catalog Service down, at the price of showing the product details as they were when the item was added. The cache can serve data up to 7 days old, or older when Open Food Facts is down, which is acceptable for product names and Nutri-Scores. A database that is paused adds a delay of up to about a minute on the first request, which the startup retries and the five minute deployment health check absorb. SQLAlchemy stays pinned at 2.0.54 until we have tested a newer version. Schema changes need a new migration file and run automatically on deploy, so a broken migration stops the container instead of serving a broken schema. There is no foreign key across the two databases: the barcode is the only link.
+
 ## 3. Personal Azure hosting and deployment
 Date: 2026-11-14
 Status: Decided
