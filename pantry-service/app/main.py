@@ -1,6 +1,5 @@
 import logging
 import sys
-from collections.abc import Iterator
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Response, status
@@ -9,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app import config, pantry
 from app.catalog_client import Catalog, CatalogUnavailable, ProductNotFound, get_catalog
-from app.db import get_sessionmaker
+from app.db import get_session as get_session
 from app.logging_middleware import RequestLogMiddleware
 from app.schemas import PantryItemCreate, PantryItemOut, PantryItemUpdate
 
@@ -27,12 +26,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-def get_session() -> Iterator[Session]:
-    """One database session per request. Tests replace it with a SQLite session."""
-    with get_sessionmaker()() as session:
-        yield session
 
 
 # Annotated dependencies (FastAPI's recommended style): routes ask for a session

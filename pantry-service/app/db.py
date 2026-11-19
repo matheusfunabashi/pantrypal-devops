@@ -1,7 +1,8 @@
+from collections.abc import Iterator
 from functools import lru_cache
 
 from sqlalchemy import URL, Engine, create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app import config
 
@@ -36,3 +37,9 @@ def get_engine() -> Engine:
 @lru_cache
 def get_sessionmaker() -> sessionmaker:
     return sessionmaker(bind=get_engine())
+
+
+def get_session() -> Iterator[Session]:
+    """Open one database session per request."""
+    with get_sessionmaker()() as session:
+        yield session

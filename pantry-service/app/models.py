@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, Integer, String, func
+from sqlalchemy import NVARCHAR, CheckConstraint, DateTime, Integer, String, func
 from sqlalchemy.dialects import mssql
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -32,5 +32,18 @@ class PantryItem(Base):
     brand_snapshot: Mapped[str | None] = mapped_column(String(255))
     image_url_snapshot: Mapped[str | None] = mapped_column(String(1000))
     nutri_score_snapshot: Mapped[str | None] = mapped_column(String(1))
+    created_at: Mapped[datetime] = mapped_column(Timestamp, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(Timestamp, server_default=func.now())
+
+
+class StockTarget(Base):
+    """Minimum stock and its saved product name, even after the pantry item is removed."""
+
+    __tablename__ = "stock_targets"
+    __table_args__ = (CheckConstraint("target BETWEEN 1 AND 999", name="ck_stock_targets_target"),)
+
+    barcode: Mapped[str] = mapped_column(NVARCHAR(14), primary_key=True)
+    name: Mapped[str] = mapped_column(NVARCHAR(255))
+    target: Mapped[int] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(Timestamp, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(Timestamp, server_default=func.now())

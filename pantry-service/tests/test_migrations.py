@@ -76,7 +76,7 @@ def test_second_upgrade_applies_nothing(db_url, engine):
     command.upgrade(alembic_config(db_url), "head")
 
     with engine.connect() as conn:
-        assert conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0001"
+        assert conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0002"
 
 
 def test_downgrade_drops_the_table(db_url, engine):
