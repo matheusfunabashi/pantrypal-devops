@@ -11,7 +11,7 @@ from app import config, pantry
 from app.catalog_client import Catalog, CatalogUnavailable, ProductNotFound, get_catalog
 from app.db import get_sessionmaker
 from app.logging_middleware import RequestLogMiddleware
-from app.schemas import PantryItemCreate, PantryItemOut
+from app.schemas import PantryItemCreate, PantryItemOut, PantryItemUpdate
 
 logging.basicConfig(
     level=config.LOG_LEVEL,
@@ -85,3 +85,23 @@ def add_pantry_item(
     if not created:
         response.status_code = status.HTTP_200_OK
     return PantryItemOut.from_model(item)
+
+
+@app.put("/pantry/{item_id}", response_model=PantryItemOut)
+def update_pantry_item(item_id: int, body: PantryItemUpdate, session: SessionDep) -> PantryItemOut:
+    """Set the quantity. Doesn't call Catalog, so it works when Catalog is down."""
+    try:
+        item = pantry.set_quantity(session, item_id, body.quantity)
+    except pantry.ItemNotFound:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Item not found") from None
+    return PantryItemOut.from_model(item)
+
+
+@app.delete("/pantry/{item_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
+def delete_pantry_item(item_id: int, session: SessionDep) -> Response:
+    """Remove the item. 204 with no body. Doesn't call Catalog either."""
+    try:
+        pantry.delete_item(session, item_id)
+    except pantry.ItemNotFound:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Item not found") from None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

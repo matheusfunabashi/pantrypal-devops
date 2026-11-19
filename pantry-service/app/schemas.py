@@ -19,6 +19,12 @@ class PantryItemCreate(BaseModel):
     quantity: Quantity
 
 
+class PantryItemUpdate(BaseModel):
+    """Body of PUT /pantry/{id}: the item's new quantity (not an amount to add)."""
+
+    quantity: Quantity
+
+
 class PantryItemOut(BaseModel):
     """A pantry item as the API returns it."""
 

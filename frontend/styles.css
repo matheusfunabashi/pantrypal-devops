@@ -200,11 +200,29 @@ button.secondary {
   color: #68756c;
 }
 
+.pantry-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .pantry-quantity {
-  margin: 0;
+  min-width: 2.5em;
+  text-align: center;
   font-size: 18px;
   font-weight: bold;
-  white-space: nowrap;
+}
+
+button.small {
+  padding: 6px 12px;
+}
+
+button.danger {
+  background: white;
+  color: #c33b3b;
+  border: 1px solid #c33b3b;
 }
 
 #pantry-message:empty {

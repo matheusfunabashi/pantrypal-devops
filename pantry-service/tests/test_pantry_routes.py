@@ -1,5 +1,7 @@
 import pytest
 
+from app.catalog_client import CatalogUnavailable
+
 BARCODE = "3017620422003"
 
 
@@ -130,3 +132,132 @@ def test_existing_barcode_still_works_when_catalog_is_down(client, catalog):
     assert added.status_code == 200
     assert added.json()["quantity"] == 3
     assert listed.status_code == 200
+
+
+# ---------- PUT /pantry/{id}: set the quantity (US-04, #6) ----------
+
+
+def test_put_sets_the_quantity_and_saves_it(client):
+    created = client.post("/pantry", json={"barcode": BARCODE, "quantity": 2}).json()
+
+    response = client.put(f"/pantry/{created['id']}", json={"quantity": 7})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == created["id"]
+    assert body["quantity"] == 7
+    assert body["name"] == "Nutella"
+    assert body["updated_at"] >= created["updated_at"]
+    # Saved in the database, not just in the response.
+    assert client.get(f"/pantry/{created['id']}").json()["quantity"] == 7
+
+
+def test_put_replaces_the_quantity_instead_of_adding(client):
+    created = client.post("/pantry", json={"barcode": BARCODE, "quantity": 5}).json()
+
+    response = client.put(f"/pantry/{created['id']}", json={"quantity": 2})
+
+    assert response.json()["quantity"] == 2
+
+
+@pytest.mark.parametrize("quantity", [1, 999])
+def test_put_accepts_the_limits(client, quantity):
+    created = client.post("/pantry", json={"barcode": BARCODE, "quantity": 5}).json()
+
+    response = client.put(f"/pantry/{created['id']}", json={"quantity": quantity})
+
+    assert response.status_code == 200
+    assert response.json()["quantity"] == quantity
+
+
+@pytest.mark.parametrize("quantity", [0, -1, 1000, "abc", "2", 2.5, True, None])
+def test_put_invalid_quantity_returns_422_and_changes_nothing(client, quantity):
+    created = client.post("/pantry", json={"barcode": BARCODE, "quantity": 3}).json()
+
+    response = client.put(f"/pantry/{created['id']}", json={"quantity": quantity})
+
+    assert response.status_code == 422
+    assert client.get(f"/pantry/{created['id']}").json()["quantity"] == 3
+
+
+def test_put_without_quantity_returns_422(client):
+    created = client.post("/pantry", json={"barcode": BARCODE, "quantity": 3}).json()
+
+    response = client.put(f"/pantry/{created['id']}", json={})
+
+    assert response.status_code == 422
+
+
+def test_put_missing_item_returns_404(client):
+    response = client.put("/pantry/999", json={"quantity": 2})
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Item not found"}
+
+
+def test_put_works_when_catalog_is_down(client, catalog):
+    created = client.post("/pantry", json={"barcode": BARCODE, "quantity": 1}).json()
+    catalog.error = CatalogUnavailable()
+
+    response = client.put(f"/pantry/{created['id']}", json={"quantity": 4})
+
+    assert response.status_code == 200
+    assert response.json()["quantity"] == 4
+    assert catalog.calls == [BARCODE]  # only the original add asked Catalog
+
+
+# ---------- DELETE /pantry/{id}: remove an item (US-05, #7) ----------
+
+
+def test_delete_removes_the_item(client):
+    created = client.post("/pantry", json={"barcode": BARCODE, "quantity": 2}).json()
+
+    response = client.delete(f"/pantry/{created['id']}")
+
+    assert response.status_code == 204
+    assert response.content == b""
+    assert client.get(f"/pantry/{created['id']}").status_code == 404
+    assert client.get("/pantry").json() == []
+
+
+def test_delete_missing_item_returns_404(client):
+    response = client.delete("/pantry/999")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Item not found"}
+
+
+def test_delete_twice_returns_404_the_second_time(client):
+    created = client.post("/pantry", json={"barcode": BARCODE, "quantity": 1}).json()
+
+    assert client.delete(f"/pantry/{created['id']}").status_code == 204
+    assert client.delete(f"/pantry/{created['id']}").status_code == 404
+
+
+def test_delete_only_removes_that_item(client, catalog):
+    catalog.products["12345678"] = {"name": "Other"}
+    keep = client.post("/pantry", json={"barcode": "12345678", "quantity": 1}).json()
+    remove = client.post("/pantry", json={"barcode": BARCODE, "quantity": 1}).json()
+
+    client.delete(f"/pantry/{remove['id']}")
+
+    assert [item["id"] for item in client.get("/pantry").json()] == [keep["id"]]
+
+
+def test_delete_works_when_catalog_is_down(client, catalog):
+    created = client.post("/pantry", json={"barcode": BARCODE, "quantity": 1}).json()
+    catalog.error = CatalogUnavailable()
+
+    response = client.delete(f"/pantry/{created['id']}")
+
+    assert response.status_code == 204
+
+
+def test_barcode_can_be_added_again_after_delete(client):
+    created = client.post("/pantry", json={"barcode": BARCODE, "quantity": 5}).json()
+    client.delete(f"/pantry/{created['id']}")
+
+    response = client.post("/pantry", json={"barcode": BARCODE, "quantity": 1})
+
+    assert response.status_code == 201
+    assert response.json()["quantity"] == 1
