@@ -76,10 +76,20 @@ If on Monday 16 November the Must items aren't all deployed, we stop the Should 
 
 **Azure credentials.** We are waiting for the group's service principal and resource group. Until they arrive, Sami prepares everything that doesn't need Azure: pushing images to GitHub Container Registry, the CD workflow and the setup scripts. If the group isn't approved, or we still have no answer by the end of Friday 13 November, one of us hosts the resources on a personal Azure subscription, as the professor allowed. We keep the same resource names and limits.
 
-## Sprint Review (18 November)
+## Sprint evidence and follow-up
 
-To fill in after the meeting: who was there, what we showed, which items are done and which go back to the backlog, and the Product Owner's decision on each item.
+On 17 November the public site passed health, barcode lookup, cached lookup, error handling, add and increment checks. Additions worked on a laptop and phone. The deployed image tags matched the tested revision, and Log Analytics recorded requests from both services. Update and remove returned 405 during that run. [Integration record #45](https://github.com/matheusfunabashi/pantrypal-devops/issues/45)
 
-## Retrospective (18 November)
+On 19 November Matheus’s PR #58 supplied update and remove. The personal deployment passed CI, Compose, image publishing, backend and frontend deployment, and health checks at `724ee2e`. Local desktop and emulated phone checks passed with Catalog offline. The team still needs to record update and remove after reload on the public site using a laptop and a physical phone. The optional smoke job was skipped and Bicep #46 remains optional. The professor advised continuing on the personal deployment while the group identity is pending. [CD run](https://github.com/matheusfunabashi/pantrypal-devops/actions/runs/44541649429)
 
-To fill in after the meeting: what went well, what didn't, and what we agree to change in Sprint 2, with a name next to each agreement.
+## Sprint Review
+
+All must deliverables from sprint 1 were implemented and tested. The app works on azure (adding a product to the pantry by barcode with its Nutriscore using OpenFoodFacts, updating/deleting a product, checking if the services are healthy). 
+
+## Retrospective
+
+Deployment went really well and smoothly on a personal account because GitHub OIDC id was not provided, both services returned 200 on requests, errors were handled gracefully (invalid quantities). Resource provisioning on new resourse group went well. Communication between team members could have been better.
+
+Sprint 2 goal: Enrich the project with more features, test partial failure, add monitoring dashboard, and move deployment to new resource group.
+
+On 19 November the team enabled the personal deployment smoke job in GitHub. Direct checks of the deployed barcode lookup and pantry list both returned HTTP 200. The next full main deployment will provide the first Actions result with the flag enabled.

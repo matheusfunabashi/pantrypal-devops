@@ -10,8 +10,8 @@ The full product scope, rules and out-of-scope list are in [docs/product-scope.m
 
 | Feature | Status |
 | --- | --- |
-| Look up a product by barcode (name, brand, image, Nutri-Score) | Backend deployed; UI pending (#52) |
-| Pantry: add, view, update quantity, delete | Planned, Sprint 1 |
+| Look up a product by barcode (name, brand, image, Nutri-Score) | Backend and browser UI deployed |
+| Pantry: add, view, update quantity, delete | Deployed through PR #58. Phone and laptop acceptance for update and removal is pending in #45 |
 | Check before you buy: look up without saving | Planned, Sprint 2 |
 | Service health page | Running locally and on Azure |
 
@@ -170,13 +170,7 @@ Follow [the personal Azure setup runbook](docs/azure-personal-setup.md) for nami
 resource creation, database users, GitHub secrets and variables, deployment,
 verification, and password rotation. It accounts for existing unrelated projects.
 
-The deployment workflow merged in #50. After repairing OIDC trust,
-[CD run 43915006087](https://github.com/matheusfunabashi/pantrypal-devops/actions/runs/43915006087)
-successfully deployed `2f8005d` (including the Catalog lookup backend and both
-database migrations). Feature smoke tests remain disabled until lookup and
-`/pantry` both work on Azure. GitHub deployment uses a main-only OIDC managed
-identity and uploads the frontend to Storage. Feature acceptance is tracked
-separately from pipeline success.
+The professor advised group 8 to continue on the personal deployment while IE prepares the group GitHub identity. The pipeline deployed both services and the Storage frontend from main commit `724ee2e`. Health checks passed. The optional feature smoke job was disabled. [CD run](https://github.com/matheusfunabashi/pantrypal-devops/actions/runs/44541649429)
 
 ## Documentation
 
@@ -185,7 +179,7 @@ separately from pipeline success.
 - [AI usage](AI_USAGE.md)
 - [Decision records](docs/decisions.md)
 - [Personal Azure setup runbook](docs/azure-personal-setup.md)
-- Sprint records are in `docs/scrum/`. The data model (`docs/data-model.md`) will be added as the project progresses.
+- Sprint records are in `docs/scrum/`. The [data model](docs/data-model.md) describes both service databases.
 
 ## Team
 
@@ -196,3 +190,5 @@ separately from pipeline success.
 | [@gustaveems](https://github.com/gustaveems) | Sprint 1 Product Owner; Catalog Service, lookup UI and CI |
 
 Product Owner and Scrum Master rotate each sprint. Who held each role is recorded in `docs/scrum/sprint-N.md`.
+
+On 19 November the team enabled the personal deployment smoke job in GitHub. Direct checks of the deployed barcode lookup and pantry list both returned HTTP 200. The next full main deployment will provide the first Actions result with the flag enabled.
