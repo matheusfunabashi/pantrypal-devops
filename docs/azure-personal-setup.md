@@ -205,7 +205,6 @@ Coordinate rotation because existing revisions temporarily retain old credential
 - The existing monthly budget of 30 applies to the entire subscription, including
   the unrelated project; notifications go to the hosting member.
 
-These checks describe the initial setup deployment, not the current release.
-The successful CD run above includes both database migrations and the Catalog
-lookup backend (#33, #47 and #51). Pantry add/view, its real Catalog client, and
-the feature UI still require their own deployment and acceptance evidence.
+The professor advised the team to continue using this deployment while IE prepares the group identity. PR #58 added quantity updates and removal. The personal pipeline deployed commit `724ee2e` and both health checks passed. The optional feature smoke job was skipped. [Deployment run](https://github.com/matheusfunabashi/pantrypal-devops/actions/runs/44541649429)
+
+On 19 November the team enabled the personal deployment smoke job in GitHub. Direct checks of the deployed barcode lookup and pantry list both returned HTTP 200. The next full main deployment will provide the first Actions result with the flag enabled.

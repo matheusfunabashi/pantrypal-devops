@@ -1,39 +1,51 @@
 # Architecture decisions
 
-## 1. Two services and their layers
+## 1. Separate the pantry inventory from the product catalog
 Date: 2026-11-17
 Status: Decided
 
-Context: The brief asks for a small system of exactly two backend services plus a frontend, deployed independently by CI/CD. PantryPal has two natural halves: what the user owns (pantry items and quantities) and what the world knows (product details from Open Food Facts). The two change for different reasons and fail differently: the external API can be slow or down, the pantry must keep working.
+**Context.** The group brief requires two services with separate databases. A slow product lookup should still let someone manage groceries they already own.
 
-Decision: Split into a Pantry Service, which owns the inventory, and a Catalog Service, which owns external product data and its cache. Each has its own database and its own container image. The browser calls both services directly: the Catalog Service for lookups, the Pantry Service for the pantry. The Pantry Service also calls the Catalog Service over HTTP (`CATALOG_URL`, with a timeout) when the user adds a barcode it has not stored yet. Inside each service the code is layered: routes (HTTP only: parse the request, map errors to status codes), core logic (`pantry.py`, `products.py`: the rules, no HTTP types), clients (`catalog_client.py`, `off_client.py`: one place per external call, mockable) and database (`db.py`, `models.py`, Alembic migrations).
+**Decision.** Use two Python FastAPI services with HTTP routes, core logic, database access and external clients in separate modules. Pantry calls Catalog for a new barcode with a bounded timeout and stores a snapshot with the item.
 
-Alternatives considered: 1. One service for everything: simpler, but the Open Food Facts failures and cache would sit in the same process and database as the user's data, and it would not meet the two-service requirement. 2. Three services (a separate Open Food Facts client, cache and pantry): more isolation than a student project needs, and every extra service adds a pipeline, an image and a Container App. 3. The Pantry Service as the only entry point, proxying every lookup: one origin for the browser, but the Pantry Service would be in the path of every lookup and would need to forward Catalog errors. 4. One shared database: easiest to join, but the services would share a schema and could no longer be changed or deployed independently.
+**Alternatives considered.** A shared database would couple schema changes across services. Routing every lookup through Pantry would make Catalog depend on Pantry’s availability.
 
-Consequences: A new barcode in the Pantry Service needs a network call, so it has to handle the Catalog Service being slow or down: a 10 second timeout, 404 mapped to 404, and timeouts, connection errors and 5xx mapped to 503. Everything that does not need the Catalog Service (listing, updating, deleting, adding a barcode already in the pantry) keeps working when it is down. The browser talks to two origins, so each service allows only the frontend's origin (CORS). There is a little duplicated structure in the two services, which we accept to keep them independent. Because external calls live in clients and rules in core logic, tests can mock the HTTP layer and run against an in-memory database.
+**Consequences.** Existing inventory operations use Pantry alone, and tests can substitute the external client. A new item depends on Catalog, so the API maps missing products to 404 and unavailability to 503.
 
-## 2. Storage, caching and data access
+## 2. Persist pantry snapshots and cache product details
 Date: 2026-11-17
 Status: Decided
 
-Context: Each service needs durable storage, the Catalog Service must not hammer Open Food Facts, and the Pantry Service must keep working when the Catalog Service does not. Azure SQL serverless auto-pauses, so the first connection after idle can fail for about a minute while the database resumes. The team's earlier coursework already used SQL Server with pymssql, and found that SQLAlchemy 2.1.x broke its tests.
+**Context.** Open Food Facts can time out, and a serverless SQL database can take time to resume. The local stack also needs to reproduce the production schema.
 
-Decision: 1. Two serverless Azure SQL databases, one per service, and SQL Server containers locally. 2. The Pantry Service stores a snapshot of the product (name, brand, image URL, Nutri-Score) in each `pantry_items` row, copied from the Catalog Service when the item is first added. 3. The Catalog Service caches every product it fetches in `cached_products` with `fetched_at`. A row younger than `CACHE_TTL_DAYS` (7) is returned with `source: cache` and Open Food Facts is not called. An older row is refreshed. If Open Food Facts is unavailable and any row exists, the stale row is returned instead of an error. Unknown barcodes are not cached. 4. Python access with SQLAlchemy 2.0.54 over `mssql+pymssql://` (pymssql 2.4.6, no ODBC driver in the image), and versioned schema changes with Alembic. Each container runs `alembic upgrade head` on startup, retrying while the database is unreachable, then starts uvicorn.
+**Decision.** Use SQL Server locally and one serverless Azure SQL database per service, with SQLAlchemy, pymssql and versioned Alembic migrations on startup. Catalog caches successful lookups for seven days by default and serves an existing stale row during an upstream outage.
 
-Alternatives considered: 1. One database with two sets of tables: fewer resources, but it couples the services and breaks the rule that each service owns its data. 2. No snapshot, with the Pantry Service asking the Catalog Service every time it lists items: always fresh, but the pantry would break whenever the Catalog Service or Open Food Facts is down. 3. No cache: simplest, but every lookup would depend on Open Food Facts being fast and available, and we would risk its rate limits. 4. pyodbc with the Microsoft ODBC driver: the usual choice, but it adds a system package and a longer image build. 5. Creating tables with `create_all` or raw SQL at startup: no history and no safe way to change a table later, and migrations are required.
+**Alternatives considered.** Fetching fresh details for every pantry view would make the view depend on the network. Creating tables directly on startup would leave existing installations without a versioned upgrade path.
 
-Consequences: The pantry keeps working with the Catalog Service down, at the price of showing the product details as they were when the item was added. The cache can serve data up to 7 days old, or older when Open Food Facts is down, which is acceptable for product names and Nutri-Scores. A database that is paused adds a delay of up to about a minute on the first request, which the startup retries and the five minute deployment health check absorb. SQLAlchemy stays pinned at 2.0.54 until we have tested a newer version. Schema changes need a new migration file and run automatically on deploy, so a broken migration stops the container instead of serving a broken schema. There is no foreign key across the two databases: the barcode is the only link.
+**Consequences.** Stored snapshots and cached results keep reads available but may show older product details. Bounded startup retries cover database resume, and a failed migration prevents the service from starting.
 
-## 3. Personal Azure hosting and deployment
+## 3. Deploy through GitHub Actions to the personal Azure resource group
 Date: 2026-11-14
 Status: Decided
 
-Context: Sprint 1 requires the PantryPal skeleton to run on Azure before feature expansion. The personal-account guidance in assignment 2 specifies an Azure for Students subscription, a project resource group, Storage static website hosting, and a managed identity for the pipeline. Our subscription blocks Static Web Apps regions and the guidance's suggested France Central region, while the university tenant prevents application registrations.
+**Context.** Sprint 1 needed a working deployment before the institutional credentials were available. The personal subscription’s allowed regions excluded Static Web Apps, and the professor authorized personal hosting.
 
-Decision: Use Azure CLI scripts to provision a dedicated prefixed resource group's resources in Germany West Central: two Consumption Container Apps with 0–1 replicas, one SQL logical server with two serverless databases, a Storage static website, and Log Analytics, with GitHub OIDC authentication through a user-assigned managed identity scoped to the project. CD must reuse CI before publishing public SHA-tagged GHCR images, configure per-service SQL passwords as Container App secrets, upload the static frontend, and check both health endpoints concurrently within five minutes; nginx remains local-only and feature smoke tests stay disabled until their endpoints exist.
+**Decision.** Script two Consumption Container Apps scaling from zero to one, two auto-pausing SQL databases, a Storage static website and Log Analytics in Germany West Central. Gate CD on CI, publish SHA-tagged GHCR images, use OIDC with a managed identity scoped to the project, pass database passwords through Container App secrets, and check both health endpoints after deployment.
 
-Alternatives considered: 1. Static Web Apps in the shared institutional subscription — unavailable while deploying to the personal account, whose allowed regions do not support Static Web Apps. 2. France Central — recommended by the cloud instructions but excluded by this subscription's policy, so use the permitted Germany West Central region. 3. Bicep for provisioning — deferred until the scripted deployment works, to protect the first-deployment milestone.
+**Alternatives considered.** The group Static Web App depends on IE’s deployment identity. Azure CLI could provision the personal stack in time for Sprint 1, so the team deferred the optional Bicep version.
 
-Consequences: Consumption compute and SQL auto-pause reduce idle costs, but the first request may wait for a container cold start and database resume, so startup migrations need bounded connection retries and deployment checks allow five minutes; the 0–1 replica setting limits scale, and a large traffic increase would require revisiting capacity and migration coordination. Storage provides the public HTTPS UI origin used by backend CORS, only frontend files may be uploaded, persistent state stays in each service's database, and the monthly budget alert of 30 reports spending without enforcing a hard cap.
+**Consequences.** Compute can scale down between requests, while cold starts require a five-minute health-check window and storage and logs can still incur charges. The Storage website provides the public origin used by both APIs.
 
-Implementation evidence (16 November 2026): PR #50 added automated deployment. After correcting the managed identity’s federated subject to include the numeric GitHub owner and repository IDs, [CD run 43915006087](https://github.com/matheusfunabashi/pantrypal-devops/actions/runs/43915006087) successfully deployed commit `2f8005d`. PR #53 makes that trust configuration reproducible in the setup script. Pipeline success does not replace acceptance checks for individual features.
+On 19 November the professor advised continuing on this deployment while IE provisions its GitHub identity. [First successful automated deployment](https://github.com/matheusfunabashi/pantrypal-devops/actions/runs/43915006087) · [Deployment including update and removal](https://github.com/matheusfunabashi/pantrypal-devops/actions/runs/44541649429)
+
+## 4. Configure the static browser UI at deployment
+Date: 2026-11-19
+Status: Decided
+
+**Context.** Local development and Azure use different service addresses. Each API needs the exact browser origin for CORS.
+
+**Decision.** Serve plain HTML, CSS and JavaScript, with CD writing both public HTTPS endpoints into frontend/config.js. Render product text with textContent and accept HTTP(S) image URLs.
+
+**Alternatives considered.** Hard-coded URLs would require a source change for every deployment target. A frontend build tool would add a dependency to substitute two public settings.
+
+**Consequences.** The same frontend works locally and on Azure, provided CD coordinates its URLs with backend CORS. Database credentials stay in the backend, and the server-side Pantry client uses CATALOG_URL independently of browser configuration.
