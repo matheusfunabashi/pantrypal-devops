@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -109,3 +109,41 @@ def add_item(
         return existing, False
     session.refresh(item)
     return item, True
+
+
+def set_quantity(session: Session, item_id: int, quantity: int) -> PantryItem:
+    """Set an item's quantity to a new value (PUT /pantry/{id}). Never calls Catalog.
+
+    One UPDATE statement, so an item deleted at the same moment gives ItemNotFound
+    instead of an error. The 1-999 range is checked by the schema before we get here,
+    and again by the database's check constraint.
+    """
+    result = session.execute(
+        update(PantryItem)
+        .where(PantryItem.id == item_id)
+        .values(quantity=quantity, updated_at=_utc_now())
+        .execution_options(synchronize_session=False)
+    )
+    if result.rowcount == 0:
+        session.rollback()
+        raise ItemNotFound(item_id)
+    session.commit()
+    # commit() expires loaded objects, so this reads the new values from the database.
+    return get_item(session, item_id)
+
+
+def delete_item(session: Session, item_id: int) -> None:
+    """Remove an item from the pantry (DELETE /pantry/{id}). Never calls Catalog.
+
+    One DELETE statement: if two requests delete the same item, the second one
+    gets ItemNotFound (404) instead of an error.
+    """
+    result = session.execute(
+        delete(PantryItem)
+        .where(PantryItem.id == item_id)
+        .execution_options(synchronize_session=False)
+    )
+    if result.rowcount == 0:
+        session.rollback()
+        raise ItemNotFound(item_id)
+    session.commit()

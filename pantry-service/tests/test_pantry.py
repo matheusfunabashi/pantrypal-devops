@@ -164,3 +164,32 @@ def test_increment_updates_updated_at(session, catalog):
 
     assert item.updated_at >= first_updated
     assert item.created_at <= item.updated_at
+
+
+def test_set_quantity_saves_the_new_value(session, catalog):
+    item, _ = pantry.add_item(session, BARCODE, 2, catalog)
+    first_updated = item.updated_at
+
+    item = pantry.set_quantity(session, item.id, 9)
+
+    assert item.quantity == 9
+    assert item.updated_at >= first_updated
+    assert session.get(PantryItem, item.id).quantity == 9
+
+
+def test_set_quantity_of_missing_item_raises(session):
+    with pytest.raises(pantry.ItemNotFound):
+        pantry.set_quantity(session, 999, 2)
+
+
+def test_delete_item_removes_the_row(session, catalog):
+    item, _ = pantry.add_item(session, BARCODE, 2, catalog)
+
+    pantry.delete_item(session, item.id)
+
+    assert pantry.list_items(session) == []
+
+
+def test_delete_missing_item_raises(session):
+    with pytest.raises(pantry.ItemNotFound):
+        pantry.delete_item(session, 999)

@@ -1,6 +1,9 @@
-// Pantry UI (S1-13). Lists the pantry and adds the looked-up product to it.
+// Pantry UI (S1-13, S1-10b). Lists the pantry, adds the looked-up product to it,
+// and changes or removes items.
 //
-// - The list loads when the page opens and again after every addition.
+// - The list loads when the page opens and again after every change.
+// - + and - set the quantity with PUT /pantry/{id} (- is disabled at 1).
+//   "Remove" asks for confirmation, then sends DELETE /pantry/{id}.
 // - "Add to pantry" appears after a successful lookup. lookup.js tells us about
 //   it with the "product:found" event (the product is in event.detail).
 // - API errors show the API's own "detail" message. Network errors and timeouts
@@ -52,6 +55,10 @@
 
     if (!response.ok) {
       throw new Error(await errorMessage(response));
+    }
+
+    if (response.status === 204) {
+      return { status: 204, body: null }; // DELETE answers with no body
     }
 
     try {
@@ -114,27 +121,98 @@
 
     details.append(name, brand, nutri);
 
-    const quantity = document.createElement("p");
+    const label = item.name || "this product";
+
+    const decrease = document.createElement("button");
+    decrease.type = "button";
+    decrease.className = "secondary small";
+    decrease.textContent = "−";
+    decrease.setAttribute("aria-label", `Decrease quantity of ${label}`);
+    decrease.disabled = item.quantity <= 1;
+    decrease.addEventListener("click", () => changeQuantity(row, item, item.quantity - 1));
+
+    const quantity = document.createElement("span");
     quantity.className = "pantry-quantity";
-    quantity.textContent = `× ${item.quantity}`;
+    quantity.textContent = String(item.quantity);
     quantity.setAttribute("aria-label", `Quantity ${item.quantity}`);
 
-    row.append(details, quantity);
+    const increase = document.createElement("button");
+    increase.type = "button";
+    increase.className = "secondary small";
+    increase.textContent = "+";
+    increase.setAttribute("aria-label", `Increase quantity of ${label}`);
+    increase.disabled = item.quantity >= MAX_QUANTITY;
+    increase.addEventListener("click", () => changeQuantity(row, item, item.quantity + 1));
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "danger small";
+    remove.textContent = "Remove";
+    remove.setAttribute("aria-label", `Remove ${label} from your pantry`);
+    remove.addEventListener("click", () => removeItem(row, item));
+
+    const controls = document.createElement("div");
+    controls.className = "pantry-controls";
+    controls.append(decrease, quantity, increase, remove);
+
+    row.append(details, controls);
     return row;
   }
 
-  async function loadPantry() {
+  // While a change is being saved, the row's buttons are disabled so a double
+  // click doesn't send it twice. loadPantry() redraws the row afterwards.
+  function setRowBusy(row, busy) {
+    row.querySelectorAll("button").forEach((button) => {
+      button.disabled = busy;
+    });
+  }
+
+  async function changeQuantity(row, item, quantity) {
+    setRowBusy(row, true);
+    showMessage("pantry-message", "Saving...", false);
+    try {
+      await request(`/pantry/${item.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quantity }),
+      });
+      await loadPantry();
+    } catch (error) {
+      showMessage("pantry-message", error.message, true);
+      // The item may have changed or been removed elsewhere: show the real state.
+      await loadPantry({ keepMessage: true });
+    }
+  }
+
+  async function removeItem(row, item) {
+    const name = item.name || "this product";
+    if (!window.confirm(`Remove ${name} from your pantry?`)) return;
+
+    setRowBusy(row, true);
+    showMessage("pantry-message", "Removing...", false);
+    try {
+      await request(`/pantry/${item.id}`, { method: "DELETE" });
+      await loadPantry();
+    } catch (error) {
+      showMessage("pantry-message", error.message, true);
+      await loadPantry({ keepMessage: true });
+    }
+  }
+
+  // keepMessage: leave an error from a failed change on screen while reloading.
+  async function loadPantry({ keepMessage = false } = {}) {
     const list = document.getElementById("pantry-list");
     const empty = document.getElementById("pantry-empty");
 
-    showMessage("pantry-message", "Loading...", false);
+    if (!keepMessage) showMessage("pantry-message", "Loading...", false);
     try {
       const { body: items } = await request("/pantry");
       list.replaceChildren(...items.map(renderItem));
       empty.hidden = items.length > 0;
-      showMessage("pantry-message", "", false);
+      if (!keepMessage) showMessage("pantry-message", "", false);
     } catch (error) {
-      showMessage("pantry-message", error.message, true);
+      // Keep the first error if there is one: it explains what went wrong.
+      if (!keepMessage) showMessage("pantry-message", error.message, true);
     }
   }
 
@@ -194,7 +272,7 @@
   // A new lookup hides the old product, so hide its "Add to pantry" too.
   document.getElementById("lookup-form").addEventListener("submit", hideAddForm);
   document.getElementById("add-form").addEventListener("submit", handleAdd);
-  document.getElementById("refresh-pantry").addEventListener("click", loadPantry);
+  document.getElementById("refresh-pantry").addEventListener("click", () => loadPantry());
 
   loadPantry();
 })();
