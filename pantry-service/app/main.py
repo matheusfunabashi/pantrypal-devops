@@ -10,6 +10,7 @@ from app import config, pantry
 from app.catalog_client import Catalog, CatalogUnavailable, ProductNotFound, get_catalog
 from app.db import get_session as get_session
 from app.logging_middleware import RequestLogMiddleware
+from app.restock import router as restock_router
 from app.schemas import PantryItemCreate, PantryItemOut, PantryItemUpdate
 
 logging.basicConfig(
@@ -26,6 +27,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(restock_router)
 
 
 # Annotated dependencies (FastAPI's recommended style): routes ask for a session

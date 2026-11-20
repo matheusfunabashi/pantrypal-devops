@@ -228,3 +228,43 @@ button.danger {
 #pantry-message:empty {
   display: none;
 }
+
+.pantry-item:has(> [data-restock]) {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+[data-restock] {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-basis: 100%;
+  justify-content: flex-end;
+}
+
+[data-restock] input {
+  width: 72px;
+  padding: 6px;
+  margin: 0;
+}
+
+.restock-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid #e1e5e1;
+}
+
+#restock-message:empty {
+  display: none;
+}
+
+@media (max-width: 520px) {
+  .pantry-item:has(> [data-restock]) > .pantry-controls {
+    flex-basis: 100%;
+  }
+}

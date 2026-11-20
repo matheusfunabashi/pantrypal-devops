@@ -12,10 +12,11 @@ The full product scope, rules and out-of-scope list are in [docs/product-scope.m
 | --- | --- |
 | Look up a product by barcode (name, brand, image, Nutri-Score) | Backend and browser UI deployed |
 | Pantry: add, view, update quantity, delete | Deployed through PR #58. Phone and laptop acceptance for update and removal is pending in #45 |
+| Restock list | Set a minimum per product and see how many units to buy, even when stock reaches zero |
 | Check before you buy: look up without saving | Planned, Sprint 2 |
 | Service health page | Running locally and on Azure |
 
-Optional, only after the MVP works: camera barcode scanning, expiry dates, running-low view.
+Optional, only after the MVP works: camera barcode scanning and expiry dates.
 
 ## Architecture
 

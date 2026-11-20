@@ -69,6 +69,16 @@
       <ul id="pantry-list" class="pantry-list"></ul>
     </section>
 
+    <section class="card" aria-labelledby="restock-heading">
+      <div class="card-header">
+        <h2 id="restock-heading">Restock</h2>
+        <button id="refresh-restock" type="button" class="secondary" aria-label="Refresh restock list">Refresh</button>
+      </div>
+      <p id="restock-message" class="message" role="status"></p>
+      <p id="restock-empty" class="hint" hidden>No products below their minimum. Use Min in My pantry to set a target.</p>
+      <ul id="restock-list" class="pantry-list"></ul>
+    </section>
+
     <section class="card">
       <h2>Service status</h2>
 
@@ -91,6 +101,7 @@
   <script src="config.js"></script>
   <script src="lookup.js"></script>
   <script src="pantry.js"></script>
+  <script src="restock.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
