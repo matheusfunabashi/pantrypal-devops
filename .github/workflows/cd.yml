@@ -234,7 +234,7 @@ jobs:
     steps:
       - name: Read-only checks against the deployed services
         # S1-14. Reads only, so it never changes production data. A known barcode
-        # confirms the catalog lookup path; /pantry confirms the pantry DB path.
+        # confirms Catalog lookup. The Pantry requests check inventory and stock targets.
         run: |
           set -e
           echo "Catalog lookup:"
@@ -246,4 +246,9 @@ jobs:
           code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 \
             "${{ vars.PANTRY_URL }}/pantry")
           echo "  /pantry -> $code"
+          test "$code" = "200"
+          echo "Restock list:"
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 \
+            "${{ vars.PANTRY_URL }}/restock")
+          echo "  /restock -> $code"
           test "$code" = "200"

@@ -76,10 +76,26 @@ def test_second_upgrade_applies_nothing(db_url, engine):
     command.upgrade(alembic_config(db_url), "head")
 
     with engine.connect() as conn:
-        assert conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0001"
+        assert conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0002"
 
 
 def test_downgrade_drops_the_table(db_url, engine):
     command.downgrade(alembic_config(db_url), "base")
 
     assert "pantry_items" not in inspect(engine).get_table_names()
+
+
+def test_stock_targets_migration_preserves_existing_pantry(db_url):
+    config = alembic_config(db_url)
+    command.upgrade(config, "0001")
+    engine = create_engine(db_url)
+    try:
+        with engine.begin() as conn:
+            conn.execute(INSERT, {"barcode": "00012345", "qty": 2})
+        command.upgrade(config, "0002")
+        assert "stock_targets" in inspect(engine).get_table_names()
+        with engine.connect() as conn:
+            item = conn.execute(text("SELECT barcode, quantity FROM pantry_items")).one()
+        assert tuple(item) == ("00012345", 2)
+    finally:
+        engine.dispose()

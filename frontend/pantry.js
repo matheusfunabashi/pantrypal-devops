@@ -210,6 +210,7 @@
       list.replaceChildren(...items.map(renderItem));
       empty.hidden = items.length > 0;
       if (!keepMessage) showMessage("pantry-message", "", false);
+      document.dispatchEvent(new CustomEvent("pantry:changed", { detail: items }));
     } catch (error) {
       // Keep the first error if there is one: it explains what went wrong.
       if (!keepMessage) showMessage("pantry-message", error.message, true);
@@ -274,5 +275,5 @@
   document.getElementById("add-form").addEventListener("submit", handleAdd);
   document.getElementById("refresh-pantry").addEventListener("click", () => loadPantry());
 
-  loadPantry();
+  document.addEventListener("DOMContentLoaded", () => loadPantry());
 })();
