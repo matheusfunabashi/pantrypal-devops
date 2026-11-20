@@ -13,9 +13,10 @@ The full product scope, rules and out-of-scope list are in [docs/product-scope.m
 | Look up a product by barcode (name, brand, image, Nutri-Score) | Backend and browser UI deployed |
 | Pantry: add, view, update quantity, delete | Deployed through PR #58. Phone and laptop acceptance for update and removal is pending in #45 |
 | Check before you buy: look up without saving | Planned, Sprint 2 |
+| Camera barcode scanning | Use Scan on HTTPS or localhost. Type the barcode if camera access is unavailable |
 | Service health page | Running locally and on Azure |
 
-Optional, only after the MVP works: camera barcode scanning, expiry dates, running-low view.
+Optional, only after the MVP works: expiry dates and running-low view.
 
 ## Architecture
 
