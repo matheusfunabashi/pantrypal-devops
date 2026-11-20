@@ -28,7 +28,14 @@
         >
 
         <button id="lookup-button" type="submit">Look up product</button>
+        <button id="scan-button" type="button" class="secondary" aria-controls="camera-panel" aria-expanded="false">Scan</button>
       </form>
+
+      <div id="camera-panel" hidden>
+        <div id="camera-preview"></div>
+        <button id="camera-cancel" type="button" class="secondary">Cancel</button>
+      </div>
+      <p id="camera-message" class="message" role="status"></p>
 
       <p id="lookup-message" class="message" role="status"></p>
 
@@ -91,6 +98,10 @@
   <script src="config.js"></script>
   <script src="lookup.js"></script>
   <script src="pantry.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.2.1/umd/zxing-browser.min.js"
+    integrity="sha384-HRtzk9lZgkbSgvUyQrnfC/GxiXZgwaNyD7hC9wcXlsBpDhkS80ISl73juef2FRuf"
+    crossorigin="anonymous"></script>
+  <script defer src="scanner.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
