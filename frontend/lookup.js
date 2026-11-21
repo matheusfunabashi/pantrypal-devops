@@ -57,6 +57,17 @@
 
   window.lookupProduct = lookupProduct;
 
+  function createNutriScoreBadge(value) {
+    const grade = typeof value === "string" ? value.trim().toUpperCase() : "";
+    const available = /^[A-E]$/.test(grade);
+    const badge = document.createElement("span");
+    badge.className = `nutri-badge nutri-${available ? grade.toLowerCase() : "unknown"}`;
+    badge.textContent = available ? grade : "Not available";
+    return badge;
+  }
+
+  window.createNutriScoreBadge = createNutriScoreBadge;
+
   // Only show images served over http(s).
   function isHttpUrl(value) {
     try {
@@ -89,14 +100,24 @@
       product.name || "Not available";
     document.getElementById("product-brand").textContent =
       product.brand || "Not available";
-    document.getElementById("product-nutriscore").textContent =
-      product.nutri_score ? product.nutri_score.toUpperCase() : "Not available";
+    document.getElementById("product-nutriscore").replaceChildren(
+      createNutriScoreBadge(product.nutri_score)
+    );
 
     document.getElementById("lookup-result").hidden = false;
   }
 
-  function hideProduct() {
+  function clearProduct() {
     document.getElementById("lookup-result").hidden = true;
+    document.dispatchEvent(new CustomEvent("product:cleared"));
+  }
+
+  function cancelProduct() {
+    clearProduct();
+    showMessage("", false);
+    const input = document.getElementById("barcode");
+    input.value = "";
+    input.focus();
   }
 
   async function handleSubmit(event) {
@@ -105,8 +126,7 @@
     const input = document.getElementById("barcode");
     const button = document.getElementById("lookup-button");
 
-    hideProduct();
-    showMessage("", false);
+    clearProduct();
     button.disabled = true;
     showMessage("Looking up...", false);
 
@@ -123,4 +143,5 @@
   }
 
   document.getElementById("lookup-form").addEventListener("submit", handleSubmit);
+  document.getElementById("cancel-product").addEventListener("click", cancelProduct);
 })();
