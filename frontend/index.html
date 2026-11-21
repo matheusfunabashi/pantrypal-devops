@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PantryPal</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=check-before-buy">
 </head>
 <body>
   <main class="container">
@@ -46,6 +46,10 @@
           <dt>Brand</dt><dd id="product-brand"></dd>
           <dt>Nutri-Score</dt><dd id="product-nutriscore"></dd>
         </dl>
+        <div class="lookup-notes">
+          <p>A is the best nutritional quality, E the lowest.</p>
+          <p>Checking a product doesn't add it to your pantry.</p>
+        </div>
       </div>
 
       <form id="add-form" class="add-form" novalidate hidden>
@@ -60,6 +64,7 @@
           value="1"
         >
         <button id="add-button" type="submit">Add to pantry</button>
+        <button id="cancel-product" type="button" class="secondary">Cancel</button>
       </form>
 
       <p id="add-message" class="message" role="status"></p>
@@ -116,8 +121,8 @@
   </main>
 
   <script src="config.js"></script>
-  <script src="lookup.js"></script>
-  <script src="pantry.js"></script>
+  <script src="lookup.js?v=check-before-buy"></script>
+  <script src="pantry.js?v=check-before-buy"></script>
   <script src="restock.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.2.1/umd/zxing-browser.min.js"
     integrity="sha384-HRtzk9lZgkbSgvUyQrnfC/GxiXZgwaNyD7hC9wcXlsBpDhkS80ISl73juef2FRuf"

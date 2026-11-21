@@ -14,6 +14,7 @@ The full product scope, rules and out-of-scope list are in [docs/product-scope.m
 | Pantry: add, view, update quantity, delete | Deployed through PR #58. Phone and laptop acceptance for update and removal is pending in #45 |
 | Restock list | Set a minimum per product and see how many units to buy, even when stock reaches zero |
 | Check before you buy: look up without saving | Planned, Sprint 2 |
+| Check Before You Buy | Lookup shows a coloured Nutri-Score badge or “Not available”. Choose a quantity and click “Add to pantry” to save the product, or “Cancel” to clear the lookup. |
 | Camera barcode scanning | Use Scan on HTTPS or localhost. Type the barcode if camera access is unavailable |
 | What can I cook? | Three sample recipes, each shown as "Ready" or with what is missing, from the pantry stock |
 | Service health page | Running locally and on Azure |

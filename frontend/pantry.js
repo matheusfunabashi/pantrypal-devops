@@ -236,6 +236,7 @@
 
     const input = document.getElementById("add-quantity");
     const button = document.getElementById("add-button");
+    const cancel = document.getElementById("cancel-product");
     const text = input.value.trim();
     const quantity = Number(text);
 
@@ -245,6 +246,7 @@
     }
 
     button.disabled = true;
+    cancel.disabled = true;
     showMessage("add-message", "Adding...", false);
     try {
       const { status, body: item } = await request("/pantry", {
@@ -266,12 +268,12 @@
       showMessage("add-message", error.message, true);
     } finally {
       button.disabled = false;
+      cancel.disabled = false;
     }
   }
 
   document.addEventListener("product:found", (event) => showAddForm(event.detail));
-  // A new lookup hides the old product, so hide its "Add to pantry" too.
-  document.getElementById("lookup-form").addEventListener("submit", hideAddForm);
+  document.addEventListener("product:cleared", hideAddForm);
   document.getElementById("add-form").addEventListener("submit", handleAdd);
   document.getElementById("refresh-pantry").addEventListener("click", () => loadPantry());
 
