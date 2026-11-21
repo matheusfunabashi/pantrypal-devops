@@ -103,6 +103,16 @@
         Refresh status
       </button>
     </section>
+
+    <section class="card" aria-labelledby="recipes-heading">
+      <div class="card-header">
+        <h2 id="recipes-heading">What can I cook?</h2>
+        <button id="refresh-recipes" type="button" class="secondary" aria-label="Refresh recipes">Refresh</button>
+      </div>
+      <p class="hint">Sample recipes. Amounts are whole packages.</p>
+      <p id="recipes-message" class="message" role="status"></p>
+      <ul id="recipes-list" class="recipe-list"></ul>
+    </section>
   </main>
 
   <script src="config.js"></script>
@@ -114,5 +124,6 @@
     crossorigin="anonymous"></script>
   <script defer src="scanner.js"></script>
   <script src="app.js"></script>
+  <script src="recipes.js"></script>
 </body>
 </html>

@@ -10,6 +10,7 @@ from app import config, pantry
 from app.catalog_client import Catalog, CatalogUnavailable, ProductNotFound, get_catalog
 from app.db import get_session as get_session
 from app.logging_middleware import RequestLogMiddleware
+from app.recipes import router as recipes_router
 from app.restock import router as restock_router
 from app.schemas import PantryItemCreate, PantryItemOut, PantryItemUpdate
 
@@ -100,3 +101,6 @@ def delete_pantry_item(item_id: int, session: SessionDep) -> Response:
     except pantry.ItemNotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Item not found") from None
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+app.include_router(recipes_router)
