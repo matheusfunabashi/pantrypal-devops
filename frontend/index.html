@@ -29,6 +29,8 @@
 
         <button id="lookup-button" type="submit">Look up product</button>
         <button id="scan-button" type="button" class="secondary" aria-controls="camera-panel" aria-expanded="false">Scan</button>
+        <button id="scan-photo-button" type="button" class="secondary">Scan photo</button>
+        <input id="scan-photo-file" type="file" accept="image/*" hidden>
       </form>
 
       <div id="camera-panel" hidden>
@@ -112,6 +114,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.2.1/umd/zxing-browser.min.js"
     integrity="sha384-HRtzk9lZgkbSgvUyQrnfC/GxiXZgwaNyD7hC9wcXlsBpDhkS80ISl73juef2FRuf"
     crossorigin="anonymous"></script>
+  <script defer src="barcode-ocr.js"></script>
   <script defer src="scanner.js"></script>
   <script src="app.js"></script>
 </body>
