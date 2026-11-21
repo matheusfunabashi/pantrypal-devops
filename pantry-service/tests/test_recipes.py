@@ -161,3 +161,32 @@ def test_get_recipes_works_when_catalog_is_down(client, shop):
     assert response.status_code == 200
     assert by_name(response.json())["Pesto pasta"]["ready"] is True
     assert shop.calls == [SPAGHETTI, PESTO]  # only the two additions asked Catalog
+
+
+def test_alternative_products_update_all_recipes(client, shop):
+    products = {
+        "8076800195033": "Spaghettini N°3",
+        "1111111111111": "Store brand PÉSTO alla Genovese",
+        "2222222222222": "Organic chopped-tomatoes",
+        "3333333333333": "Fresh mozzarella di bufala",
+    }
+    for barcode, name in products.items():
+        shop.products[barcode] = {"name": name}
+        add(client, barcode, 1)
+    add(client, POLPA, 1)
+    add(client, SPAGHETTI, 1)
+
+    recipes = client.get("/recipes").json()
+    assert all(recipe["ready"] for recipe in recipes)
+    assert [i["have"] for i in recipes[0]["ingredients"]] == [2, 2]
+
+    rows = client.get("/pantry").json()
+    pasta = next(row for row in rows if row["barcode"] == "8076800195033")
+    assert client.delete(f"/pantry/{pasta['id']}").status_code == 204
+    assert client.get("/recipes").json()[0]["ingredients"][0]["have"] == 1
+
+
+@pytest.mark.parametrize("name", ["Spaghetti sauce", "Spaghettissimo", "Spaghetti & meatballs"])
+def test_similar_names_and_prepared_products_do_not_supply_pasta(name):
+    product = PantryItem(barcode="11111111", name_snapshot=name, quantity=1)
+    assert availability(RECIPES, [product])[0].ingredients[0].have == 0
