@@ -37,9 +37,8 @@
     );
     card.appendChild(header);
 
-    // What the recipe needs, e.g. "Needs 1 × Spaghetti, 2 × Polpa di pomodoro".
-    const needs = recipe.ingredients.map((i) => `${i.needed} × ${i.name}`).join(", ");
-    card.appendChild(element("p", "recipe-needs", `Needs ${needs}`));
+    const stock = recipe.ingredients.map((i) => `${i.name} (${i.have} on hand, ${i.needed} needed)`);
+    card.appendChild(element("p", "recipe-needs", stock.join(", ")));
 
     const missing = recipe.ingredients.filter((i) => i.missing > 0);
     if (missing.length > 0) {
