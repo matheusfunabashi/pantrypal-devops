@@ -15,10 +15,10 @@ The full product scope, rules and out-of-scope list are in [docs/product-scope.m
 | Restock list | Set a minimum per product and see how many units to buy, even when stock reaches zero |
 | Check before you buy: look up without saving | Planned, Sprint 2 |
 | Camera barcode scanning | Use Scan on HTTPS or localhost, select Scan photo for a saved image, or type the barcode. If the bars cannot be read, the browser tries the printed digits and asks you to confirm before lookup. |
+| What can I cook? | Three sample recipes, each shown as "Ready" or with what is missing, from the pantry stock |
 | Service health page | Running locally and on Azure |
 
 Optional, only after the MVP works: expiry dates.
-Optional, only after the MVP works: expiry dates and running-low view.
 
 ## Architecture
 

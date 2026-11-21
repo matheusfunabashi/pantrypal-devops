@@ -287,3 +287,66 @@ button.danger {
 #camera-message:empty {
   display: none;
 }
+
+.recipe-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: grid;
+  gap: 12px;
+}
+
+.recipe {
+  padding: 14px 16px;
+  border: 1px solid #e1e5e1;
+  border-left: 4px solid #c9cfca;
+  border-radius: 8px;
+}
+
+.recipe.ready {
+  border-left-color: #28764c;
+}
+
+.recipe-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.recipe-name {
+  margin: 0;
+  font-size: 16px;
+}
+
+.recipe-status {
+  flex-shrink: 0;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: bold;
+  background: #f1f3f1;
+  color: #68756c;
+}
+
+.recipe-status.ready {
+  background: #e3f1e8;
+  color: #1f6640;
+}
+
+.recipe-needs {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: #68756c;
+}
+
+.recipe-missing {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: #a33232;
+  font-size: 14px;
+}
+
+#recipes-message:empty {
+  display: none;
+}
