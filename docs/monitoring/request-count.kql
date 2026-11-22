@@ -1,0 +1,16 @@
+// Request count per service, per hour, over the last 7 days (S2-06).
+// Each service writes one line per request:
+//   INFO method=GET path=/pantry status=200 duration_ms=17
+ContainerAppConsoleLogs_CL
+| where TimeGenerated > ago(7d)
+| where ContainerAppName_s in ("sdd-bcsai-g3b-personal-pantry", "sdd-bcsai-g3b-personal-catalog")
+| where Log_s has "method="
+| extend method = extract(@"method=(\S+)", 1, Log_s),
+         path = extract(@"path=(\S+)", 1, Log_s),
+         status = toint(extract(@"status=(\d+)", 1, Log_s)),
+         duration_ms = todouble(extract(@"duration_ms=(\d+(?:\.\d+)?)", 1, Log_s))
+| where isnotempty(method)
+| extend service = iff(ContainerAppName_s endswith "-pantry", "pantry", "catalog")
+| summarize requests = count() by service, hour = bin(TimeGenerated, 1h)
+| order by hour asc, service asc
+| render timechart
