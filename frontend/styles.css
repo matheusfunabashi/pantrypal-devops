@@ -374,3 +374,35 @@ button.danger {
 #recipes-message:empty {
   display: none;
 }
+
+.summary-share {
+  margin: 12px 0 0;
+  font-weight: bold;
+}
+
+.summary-share:empty,
+#summary-message:empty {
+  display: none;
+}
+
+.summary-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: grid;
+  gap: 8px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid #e1e5e1;
+}
+
+.summary-count {
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+}
