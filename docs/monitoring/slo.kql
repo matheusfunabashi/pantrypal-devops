@@ -1,0 +1,16 @@
+// SLO (S2-06): 95% of GET /pantry requests return 200 within 2000 ms,
+// over the last 7 days. Errors and slow requests both count as failures.
+// Fewer than 50 requests is reported as "insufficient data".
+ContainerAppConsoleLogs_CL
+| where TimeGenerated > ago(7d)
+| where ContainerAppName_s == "sdd-bcsai-g3b-personal-pantry"
+| where Log_s has "method="
+| extend method = extract(@"method=(\S+)", 1, Log_s),
+         path = extract(@"path=(\S+)", 1, Log_s),
+         status = toint(extract(@"status=(\d+)", 1, Log_s)),
+         duration_ms = todouble(extract(@"duration_ms=(\d+(?:\.\d+)?)", 1, Log_s))
+| where method == "GET" and path == "/pantry"
+| summarize total = count(), compliant = countif(status == 200 and duration_ms <= 2000)
+| extend percentage = iff(total < 50, "insufficient data", strcat(tostring(round(100.0 * compliant / total, 2)), "%"))
+| extend slo_met = case(total < 50, "insufficient data", 100.0 * compliant / total >= 95, "yes", "no")
+| project compliant, total, percentage, slo_met
