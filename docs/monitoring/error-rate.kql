@@ -1,0 +1,16 @@
+// Error rate per service, per hour, over the last 7 days (S2-06).
+// Error rate = 5xx responses / all requests, as a percentage.
+ContainerAppConsoleLogs_CL
+| where TimeGenerated > ago(7d)
+| where ContainerAppName_s in ("sdd-bcsai-g3b-personal-pantry", "sdd-bcsai-g3b-personal-catalog")
+| where Log_s has "method="
+| extend method = extract(@"method=(\S+)", 1, Log_s),
+         path = extract(@"path=(\S+)", 1, Log_s),
+         status = toint(extract(@"status=(\d+)", 1, Log_s)),
+         duration_ms = todouble(extract(@"duration_ms=(\d+(?:\.\d+)?)", 1, Log_s))
+| where isnotempty(method)
+| extend service = iff(ContainerAppName_s endswith "-pantry", "pantry", "catalog")
+| summarize requests = count(), errors_5xx = countif(status >= 500) by service, hour = bin(TimeGenerated, 1h)
+| extend error_rate_pct = round(100.0 * errors_5xx / requests, 2)
+| order by hour asc, service asc
+| render timechart with (ycolumns = error_rate_pct)

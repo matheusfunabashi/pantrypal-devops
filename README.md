@@ -186,6 +186,7 @@ The professor advised group 8 to continue on the personal deployment while IE pr
 - [Decision records](docs/decisions.md)
 - [Personal Azure setup runbook](docs/azure-personal-setup.md)
 - Sprint records are in `docs/scrum/`. The [data model](docs/data-model.md) describes both service databases.
+- [Monitoring](docs/monitoring/): saved Log Analytics queries for request count, error rate, latency and the `GET /pantry` SLO (ADR-5)
 
 ## Team
 

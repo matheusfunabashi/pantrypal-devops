@@ -49,3 +49,15 @@ Status: Decided
 **Alternatives considered.** Hard-coded URLs would require a source change for every deployment target. A frontend build tool would add a dependency to substitute two public settings.
 
 **Consequences.** The same frontend works locally and on Azure, provided CD coordinates its URLs with backend CORS. Database credentials stay in the backend, and the server-side Pantry client uses CATALOG_URL independently of browser configuration.
+
+## 5. Monitor with saved Log Analytics queries and one SLO
+Date: 2026-11-22
+Status: Decided
+
+**Context.** Both services run on Azure Container Apps, whose console output already goes to the Log Analytics workspace. Each service writes one line per request: `method=GET path=/pantry status=200 duration_ms=17`. We need request count, error rate and response time per service, and one measured service level objective, without adding new infrastructure in the last sprint.
+
+**Decision.** Read those request lines from `ContainerAppConsoleLogs_CL` with four Kusto queries, committed in `docs/monitoring/` and saved in the workspace: request count, error rate (5xx / all requests) and latency (p50 and p95) per service, per hour, over 7 days, plus `slo.kql`. The SLO is: 95% of `GET /pantry` requests return 200 within 2000 ms, over the last 7 days. Errors and slow requests both count as failures, and fewer than 50 requests is reported as "insufficient data". 2000 ms is well above a warm response (tens of milliseconds) so it leaves room for the first request after the serverless database or a scaled-to-zero container wakes up, without hiding a service that is consistently slow.
+
+**Alternatives considered.** An Azure Monitor Workbook would give one dashboard page, but it lives only in the portal, is harder to review in a pull request and adds a resource to keep in sync. Application Insights would give automatic request telemetry and traces, but needs an SDK or agent in both services and another resource and connection string, for data our log lines already contain.
+
+**Consequences.** The queries are versioned and reviewed like code, and anyone with read access to the workspace can run them. They depend on the log line format in `logging_middleware.py`: changing it means changing the queries. `duration_ms` is measured inside the service, so network time and container cold start before the app starts are not included. Container Apps scales to zero, so a quiet week can show too few requests for the SLO; the query then says "insufficient data" instead of a misleading percentage.
