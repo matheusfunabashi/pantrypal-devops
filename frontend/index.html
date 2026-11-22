@@ -53,6 +53,7 @@
           <p>Checking a product doesn't add it to your pantry.</p>
         </div>
       </div>
+      <p id="at-home" class="message" role="status" hidden></p>
 
       <form id="add-form" class="add-form" novalidate hidden>
         <label for="add-quantity">Quantity</label>
@@ -70,6 +71,24 @@
       </form>
 
       <p id="add-message" class="message" role="status"></p>
+    </section>
+
+    <section class="card" aria-labelledby="compare-heading">
+      <h2 id="compare-heading">Compare</h2>
+      <p id="compare-first" class="hint">Look up a product above, then enter a second barcode.</p>
+      <form id="compare-form" novalidate>
+        <label for="compare-barcode">Second barcode</label>
+        <input
+          id="compare-barcode"
+          type="text"
+          inputmode="numeric"
+          autocomplete="off"
+          placeholder="Enter 8 to 14 digits"
+        >
+        <button id="compare-button" type="submit">Compare</button>
+      </form>
+      <p id="compare-message" class="message" role="status"></p>
+      <div id="compare-result" class="compare-result"></div>
     </section>
 
     <section class="card">
@@ -124,6 +143,8 @@
 
   <script src="config.js"></script>
   <script src="lookup.js?v=check-before-buy"></script>
+  <script src="athome.js"></script>
+  <script src="compare.js"></script>
   <script src="pantry.js?v=check-before-buy"></script>
   <script src="restock.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.2.1/umd/zxing-browser.min.js"

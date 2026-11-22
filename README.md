@@ -19,6 +19,8 @@ The full product scope, rules and out-of-scope list are in [docs/product-scope.m
 | What can I cook? | Three sample recipes, each shown as "Ready" or with what is missing, from the pantry stock. Packages from different brands count together when their saved names match the ingredient or a supported alias |
 | Camera barcode scanning | Use Scan on HTTPS or localhost, select Scan photo for a saved image, or type the barcode. If the bars cannot be read, the browser tries the printed digits and asks you to confirm before lookup. |
 | What can I cook? | Three sample recipes, each shown as "Ready" or with what is missing, from the pantry stock |
+| Already at home | After a lookup, shows "You have N at home" or "None in your pantry". Shows "Pantry stock unavailable" if the Pantry Service doesn't answer within 5 s; the product result still shows |
+| Compare two products | Enter a second barcode to see both products side by side with their Nutri-Score badges and which one has the better grade |
 | Service health page | Running locally and on Azure |
 
 Optional, only after the MVP works: expiry dates.
