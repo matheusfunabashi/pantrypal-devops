@@ -7,17 +7,17 @@
 #   deploy-services  update both Container Apps to the new image, with env vars and
 #                    the DB password as a secret
 #   deploy-ui        write config.js with the service URLs, deploy the UI to the
-#                    Storage static website
+#                    group Static Web App
 #   health-check     poll /health on both services; fail if either is not 200 in time
 #   smoke-test       (S1-14) one read-only request per service after health is green
 #
 # Needs these GitHub Actions secrets and variables (infra/configure-github.sh
 # sets them):
-#   secrets:   PANTRY_DB_APP_PASSWORD, CATALOG_DB_APP_PASSWORD
+#   secrets:   IE_PANTRY_DB_APP_PASSWORD, IE_CATALOG_DB_APP_PASSWORD
 #   variables: AZURE_RG, PREFIX, SQL_SERVER_FQDN, PANTRY_URL, CATALOG_URL,
-#              UI_ORIGIN, OFF_USER_AGENT, STORAGE_ACCOUNT,
-#              AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID,
-#              ENABLE_FEATURE_SMOKE_TESTS
+#              UI_ORIGIN, OFF_USER_AGENT,
+#              AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID
+# Group-specific names use the IE_ prefix. OFF_USER_AGENT is shared.
 
 
 name: CD
@@ -26,6 +26,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      identity_only:
+        description: Verify the IE identity and resource group access only
+        type: boolean
+        default: false
 
 # Only one deployment at a time. A newer run waits instead of cancelling one
 # that is halfway through a deploy.
@@ -37,13 +42,30 @@ permissions:
   contents: read
 
 jobs:
+  verify-identity:
+    name: Verify IE identity
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.IE_AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.IE_AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.IE_AZURE_SUBSCRIPTION_ID }}
+      - name: Read the group 8 resource group
+        run: az group show --name rg-sdd-3b-g8 --query id -o tsv
+
   ci:
+    if: ${{ !inputs.identity_only }}
     name: CI
     uses: ./.github/workflows/ci.yml
 
   images:
     name: image (${{ matrix.service }})
-    needs: ci
+    needs: [ci, verify-identity]
     # workflow_dispatch can be started from any branch. Only publish from main.
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
@@ -105,20 +127,20 @@ jobs:
       - name: Azure login
         uses: azure/login@v2
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ vars.IE_AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.IE_AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.IE_AZURE_SUBSCRIPTION_ID }}
 
       - name: Configure and deploy the service
         env:
-          AZURE_RG: ${{ vars.AZURE_RG }}
-          PREFIX: ${{ vars.PREFIX }}
-          SQL_SERVER_FQDN: ${{ vars.SQL_SERVER_FQDN }}
-          UI_ORIGIN: ${{ vars.UI_ORIGIN }}
-          CATALOG_URL: ${{ vars.CATALOG_URL }}
+          AZURE_RG: ${{ vars.IE_AZURE_RG }}
+          PREFIX: ${{ vars.IE_PREFIX }}
+          SQL_SERVER_FQDN: ${{ vars.IE_SQL_SERVER_FQDN }}
+          UI_ORIGIN: ${{ vars.IE_UI_ORIGIN }}
+          CATALOG_URL: ${{ vars.IE_CATALOG_URL }}
           OFF_USER_AGENT: ${{ vars.OFF_USER_AGENT }}
-          PANTRY_DB_APP_PASSWORD: ${{ secrets.PANTRY_DB_APP_PASSWORD }}
-          CATALOG_DB_APP_PASSWORD: ${{ secrets.CATALOG_DB_APP_PASSWORD }}
+          PANTRY_DB_APP_PASSWORD: ${{ secrets.IE_PANTRY_DB_APP_PASSWORD }}
+          CATALOG_DB_APP_PASSWORD: ${{ secrets.IE_CATALOG_DB_APP_PASSWORD }}
           SERVICE: ${{ matrix.svc.name }}
           DB_USER: ${{ matrix.svc.user }}
           GH_OWNER: ${{ github.repository_owner }}
@@ -165,27 +187,39 @@ jobs:
         # The committed config.js keeps localhost for local dev; CD overwrites it
         # with the deployed URLs before uploading.
         env:
-          PANTRY_URL: ${{ vars.PANTRY_URL }}
-          CATALOG_URL: ${{ vars.CATALOG_URL }}
+          PANTRY_URL: ${{ vars.IE_PANTRY_URL }}
+          CATALOG_URL: ${{ vars.IE_CATALOG_URL }}
         run: |
           node -e 'const urls = {pantryUrl: process.env.PANTRY_URL, catalogUrl: process.env.CATALOG_URL}; for (const value of Object.values(urls)) { if (!value || new URL(value).protocol !== "https:") throw new Error("Expected HTTPS service URL"); } require("fs").writeFileSync("frontend/config.js", "window.API_CONFIG = " + JSON.stringify(urls) + ";\n");'
 
       - name: Azure login
         uses: azure/login@v2
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ vars.IE_AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.IE_AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.IE_AZURE_SUBSCRIPTION_ID }}
 
-      - name: Deploy to Storage static website
+      - name: Get the group Static Web App deployment token
+        id: swa
         env:
-          STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT }}
+          RG: ${{ vars.IE_AZURE_RG }}
+          PREFIX: ${{ vars.IE_PREFIX }}
         run: |
           set -euo pipefail
-          : "${STORAGE_ACCOUNT:?}"
-          az storage blob upload-batch --account-name "$STORAGE_ACCOUNT" \
-            --auth-mode login --destination '$web' --source frontend --overwrite true \
-            --content-cache-control no-cache --output none
+          token=$(az staticwebapp secrets list -g "$RG" -n "$PREFIX-ui" --query properties.apiKey -o tsv)
+          : "${token:?Azure returned an empty deployment token}"
+          echo "::add-mask::$token"
+          printf 'token=%s\n' "$token" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy frontend files
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          action: upload
+          azure_static_web_apps_api_token: ${{ steps.swa.outputs.token }}
+          app_location: frontend
+          output_location: ''
+          skip_app_build: true
+          production_branch: main
 
   health-check:
     name: health check
@@ -195,8 +229,8 @@ jobs:
     steps:
       - name: Wait for both services to return 200
         env:
-          PANTRY_URL: ${{ vars.PANTRY_URL }}
-          CATALOG_URL: ${{ vars.CATALOG_URL }}
+          PANTRY_URL: ${{ vars.IE_PANTRY_URL }}
+          CATALOG_URL: ${{ vars.IE_CATALOG_URL }}
         run: |
           set -euo pipefail
           check() {
@@ -229,26 +263,24 @@ jobs:
   smoke-test:
     name: smoke test
     needs: health-check
-    if: github.ref == 'refs/heads/main' && vars.ENABLE_FEATURE_SMOKE_TESTS == 'true'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     steps:
       - name: Read-only checks against the deployed services
         # S1-14. Reads only, so it never changes production data. A known barcode
-        # confirms Catalog lookup. The Pantry requests check inventory and stock targets.
+        # checks Catalog lookup, inventory and stock targets.
+        env:
+          PANTRY_URL: ${{ vars.IE_PANTRY_URL }}
+          CATALOG_URL: ${{ vars.IE_CATALOG_URL }}
+          UI_ORIGIN: ${{ vars.IE_UI_ORIGIN }}
         run: |
-          set -e
-          echo "Catalog lookup:"
-          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 \
-            "${{ vars.CATALOG_URL }}/products/3017620422003")
-          echo "  /products/3017620422003 -> $code"
-          test "$code" = "200"
-          echo "Pantry list:"
-          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 \
-            "${{ vars.PANTRY_URL }}/pantry")
-          echo "  /pantry -> $code"
-          test "$code" = "200"
-          echo "Restock list:"
-          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 \
-            "${{ vars.PANTRY_URL }}/restock")
-          echo "  /restock -> $code"
-          test "$code" = "200"
+          set -euo pipefail
+          # SQL can be resuming after a cold start. These GETs are safe to retry.
+          for url in "$CATALOG_URL/products/3017620422003" "$PANTRY_URL/pantry" "$PANTRY_URL/restock"; do
+            code=$(curl --retry 6 --retry-all-errors --retry-delay 5 --max-time 20 \
+              --fail --silent --show-error --output /dev/null --write-out '%{http_code}' "$url")
+            test "$code" = 200
+          done
+          curl --fail --silent --show-error --retry 4 --retry-delay 3 "$UI_ORIGIN/config.js" -o /tmp/config.js
+          grep -Fq "$PANTRY_URL" /tmp/config.js
+          grep -Fq "$CATALOG_URL" /tmp/config.js

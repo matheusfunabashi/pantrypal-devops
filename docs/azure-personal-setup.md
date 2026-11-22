@@ -1,5 +1,7 @@
 # Personal Azure setup
 
+Historical runbook for the personal deployment at commit `d812a46`. Reproduce those steps from that revision. The current scripts target the [group 8 deployment](azure-group-setup.md).
+
 PantryPal uses @Thecoolss's Azure for Students subscription and a dedicated
 resource group. Unrelated personal-project resources must remain untouched.
 

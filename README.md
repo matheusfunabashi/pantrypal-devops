@@ -179,6 +179,8 @@ verification, and password rotation. It accounts for existing unrelated projects
 
 The professor advised group 8 to continue on the personal deployment while IE prepares the group GitHub identity. The pipeline deployed both services and the Storage frontend from main commit `724ee2e`. Health checks passed. The optional feature smoke job was disabled. [CD run](https://github.com/matheusfunabashi/pantrypal-devops/actions/runs/44541649429)
 
+The prepared Group 8 deployment uses two Container Apps, Azure SQL and a Free Static Web App in `rg-sdd-3b-g8`. The personal site above is still live until the group workflow deploys and passes the public checks. [Group 8 Azure setup and verification](docs/azure-group-setup.md)
+
 ## Documentation
 
 - [Product scope](docs/product-scope.md)

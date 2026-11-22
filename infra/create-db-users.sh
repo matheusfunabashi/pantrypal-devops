@@ -46,20 +46,33 @@ set -euo pipefail
 : "${PANTRY_DB_NAME:?set PANTRY_DB_NAME (e.g. <prefix>-pantry-db)}"
 : "${CATALOG_DB_NAME:?set CATALOG_DB_NAME (e.g. <prefix>-catalog-db)}"
 
+if [[ -n "${SUBSCRIPTION:-}" ]]; then
+  az() { command az "$@" --subscription "$SUBSCRIPTION"; }
+fi
 SQL_IMAGE="mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04"
 export SQLCMDPASSWORD="$SQL_ADMIN_PASSWORD"
+if [[ -n "${GO_SQLCMD:-}" ]]; then
+  sqlcmd=("$GO_SQLCMD" -N true)
+else
+  sqlcmd=(docker run --rm -i -e SQLCMDPASSWORD "$SQL_IMAGE" /opt/mssql-tools18/bin/sqlcmd -N)
+fi
 SQL_FQDN=$(az sql server show -g "$RG" -n "$SQL_SERVER" --query fullyQualifiedDomainName -o tsv)
 
 # Add a temporary firewall rule for this machine, and always remove it on exit.
-MY_IP=$(curl --fail --silent --show-error --max-time 15 https://api.ipify.org)
-RULE="tmp-dbusers-$(date +%s)"
+# An HTTP proxy can use a different egress address from a SQL connection.
+MY_IP=${SQL_CLIENT_IP:-$(curl --fail --silent --show-error --max-time 15 https://api.ipify.org)}
+LAST_IP=${SQL_CLIENT_END_IP:-$MY_IP}
+RULE="tmp-dbusers-$(date +%s)-$$"
 cleanup() {
-  az sql server firewall-rule delete -g "$RG" -s "$SQL_SERVER" -n "$RULE" -o none 2>/dev/null || true
+  az sql server firewall-rule delete -g "$RG" -s "$SQL_SERVER" -n "$RULE" -o none || {
+    echo "Check temporary firewall rule $RULE on $SQL_SERVER; cleanup failed." >&2
+    return 1
+  }
 }
 trap cleanup EXIT
-echo "==> Temporary firewall rule $RULE for $MY_IP"
+echo "==> Temporary firewall rule $RULE for $MY_IP to $LAST_IP"
 az sql server firewall-rule create -g "$RG" -s "$SQL_SERVER" \
-  -n "$RULE" --start-ip-address "$MY_IP" --end-ip-address "$MY_IP" -o none
+  -n "$RULE" --start-ip-address "$MY_IP" --end-ip-address "$LAST_IP" -o none
 
 # Creates (or resets the password of) one contained user in one database.
 # Fixed app usernames: pantry_user and catalog_user (validated, letters/digits/_).
@@ -71,10 +84,7 @@ create_user() {
   fi
   local pass_sql=${pass//\'/\'\'}
   echo "==> $user in database $db"
-  docker run --rm -i \
-    -e SQLCMDPASSWORD \
-    "$SQL_IMAGE" /opt/mssql-tools18/bin/sqlcmd \
-    -S "$SQL_FQDN" -U "$SQL_ADMIN_USER" -d "$db" -N -b <<SQL
+  "${sqlcmd[@]}" -S "$SQL_FQDN" -U "$SQL_ADMIN_USER" -d "$db" -b <<SQL
 SET NOCOUNT ON;
 IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'$user')
     CREATE USER [$user] WITH PASSWORD = N'$pass_sql';
@@ -85,6 +95,9 @@ IF IS_ROLEMEMBER(N'db_owner', N'$user') = 0
     ALTER ROLE db_owner ADD MEMBER [$user];
 GO
 SQL
+  # Verify the application credentials and role while the temporary rule is open.
+  SQLCMDPASSWORD="$pass" "${sqlcmd[@]}" -S "$SQL_FQDN" -U "$user" -d "$db" -b \
+    -Q "IF COALESCE(IS_ROLEMEMBER('db_owner'), 0) <> 1 THROW 50000, 'Missing service database role', 1;"
 }
 
 create_user "$PANTRY_DB_NAME" "pantry_user" "$PANTRY_DB_APP_PASSWORD"

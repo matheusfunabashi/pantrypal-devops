@@ -45,6 +45,8 @@ US-08 (expiry dates) stays in the backlog.
 
 **Azure.** We stay on the personal deployment until the group's GitHub managed identity arrives, as we were told. If it arrives by Saturday 21 November at 18:00, Sami moves the deployment to the group's resource group, where the frontend can use Static Web Apps. Otherwise we submit on the personal deployment.
 
+On 22 November, Group 8 verified that `sdd-3b-g8-github` has Contributor on `rg-sdd-3b-g8`. Azure recorded the identity on 21 November before the 18:00 cutoff. On 22 November the team created the main-branch federated credential and verified its configuration. A GitHub Actions login and deployment to IE are still pending. The personal site remains the submission target pending a team decision to switch. [Group deployment runbook](../azure-group-setup.md)
+
 **Independent work.** Each feature has one owner and uses only what was already on `main` or what its owner builds. New Pantry endpoints go in their own router modules, only the restock feature adds a migration (`0002`), and each frontend feature has its own file and its own section of the page.
 
 **Definition of Done for this sprint.** An item is done when its PR is merged, CD has deployed it, and its owner has ticked every acceptance criterion in the issue with evidence: a screenshot or command output, the CI run and the deployed SHA. Every PR still needs one approval from another member. The reviewer reads the diff and checks CI is green.

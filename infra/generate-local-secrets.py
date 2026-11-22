@@ -1,3 +1,4 @@
+import argparse
 import os
 import secrets
 import shlex
@@ -5,7 +6,9 @@ from pathlib import Path
 
 
 def main():
-    destination = Path('.env.azure')
+    parser = argparse.ArgumentParser(description='Create local Azure SQL credentials.')
+    parser.add_argument('--group8', action='store_true', help='Write .env.azure.group8')
+    destination = Path('.env.azure.group8' if parser.parse_args().group8 else '.env.azure')
     values = {'SQL_ADMIN_USER': 'pantrypaladmin'}
     for name in ('SQL_ADMIN_PASSWORD', 'PANTRY_DB_APP_PASSWORD', 'CATALOG_DB_APP_PASSWORD'):
         values[name] = 'Aa1!' + secrets.token_hex(24)
