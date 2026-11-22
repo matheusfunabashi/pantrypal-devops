@@ -375,6 +375,44 @@ button.danger {
   display: none;
 }
 
+.compare-result {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.compare-card {
+  border: 1px solid #e1e5e1;
+  border-radius: 8px;
+  padding: 12px;
+  min-width: 0;
+}
+
+.compare-card img {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+}
+
+.compare-card p {
+  margin: 0 0 6px;
+}
+
+.compare-name {
+  font-weight: bold;
+}
+
+.compare-brand {
+  font-size: 14px;
+  color: #68756c;
+}
+
+.compare-better {
+  font-weight: bold;
+  color: #166534;
+}
+
 .summary-share {
   margin: 12px 0 0;
   font-weight: bold;

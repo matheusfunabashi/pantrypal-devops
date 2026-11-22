@@ -13,12 +13,11 @@ The full product scope, rules and out-of-scope list are in [docs/product-scope.m
 | Look up a product by barcode (name, brand, image, Nutri-Score) | Backend and browser UI deployed |
 | Pantry: add, view, update quantity, delete | Deployed through PR #58. Phone and laptop acceptance for update and removal is pending in #45 |
 | Restock list | Set a minimum per product and see how many units to buy, even when stock reaches zero |
-| Check before you buy: look up without saving | Planned, Sprint 2 |
 | Check Before You Buy | Lookup shows a coloured Nutri-Score badge or “Not available”. Choose a quantity and click “Add to pantry” to save the product, or “Cancel” to clear the lookup. |
-| Camera barcode scanning | Use Scan on HTTPS or localhost. Type the barcode if camera access is unavailable |
 | What can I cook? | Three sample recipes, each shown as "Ready" or with what is missing, from the pantry stock. Packages from different brands count together when their saved names match the ingredient or a supported alias |
 | Camera barcode scanning | Use Scan on HTTPS or localhost, select Scan photo for a saved image, or type the barcode. If the bars cannot be read, the browser tries the printed digits and asks you to confirm before lookup. |
-| What can I cook? | Three sample recipes, each shown as "Ready" or with what is missing, from the pantry stock |
+| Already at home | After a lookup, shows "You have N at home" or "None in your pantry". Shows "Pantry stock unavailable" if the Pantry Service doesn't answer within 5 s; the product result still shows |
+| Compare two products | Enter a second barcode to see both products side by side with their Nutri-Score badges and which one has the better grade |
 | Pantry overview | Packages per Nutri-Score grade (A–E and "Not available") and the share graded A or B, from the pantry stock |
 | Service health page | Running locally and on Azure |
 
