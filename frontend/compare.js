@@ -13,6 +13,8 @@
 
   let firstBarcode = null; // barcode of the product from the last lookup
 
+  let selectionVersion = 0;
+
   function showMessage(text, isError) {
     const message = document.getElementById("compare-message");
     message.textContent = text;
@@ -86,6 +88,7 @@
       return;
     }
 
+    const version = selectionVersion;
     button.disabled = true;
     showMessage("Comparing...", false);
     try {
@@ -94,6 +97,7 @@
         window.lookupProduct(firstBarcode),
         window.lookupProduct(secondBarcode),
       ]);
+      if (version !== selectionVersion) return;
       const outcome = verdict(first, second);
       result.append(
         renderCard(first, outcome === "first"),
@@ -103,14 +107,17 @@
       else if (outcome === "missing") showMessage("Can't compare: Nutri-Score not available", false);
       else showMessage("", false);
     } catch (error) {
+      if (version !== selectionVersion) return;
       showMessage(error.kind ? error.message : "Lookup is temporarily unavailable, try again", true);
     } finally {
-      button.disabled = false;
+      if (version === selectionVersion) button.disabled = false;
     }
   }
 
   function setFirst(barcode) {
+    selectionVersion += 1;
     firstBarcode = barcode;
+    document.getElementById("compare-button").disabled = false;
     document.getElementById("compare-first").textContent = barcode
       ? `Comparing with ${barcode}`
       : "Look up a product above, then enter a second barcode.";

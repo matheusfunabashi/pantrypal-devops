@@ -139,6 +139,17 @@
       <p id="recipes-message" class="message" role="status"></p>
       <ul id="recipes-list" class="recipe-list"></ul>
     </section>
+
+    <section class="card" aria-labelledby="summary-heading">
+      <div class="card-header">
+        <h2 id="summary-heading">Pantry overview</h2>
+        <button id="refresh-summary" type="button" class="secondary" aria-label="Refresh pantry overview">Refresh</button>
+      </div>
+      <p class="hint">Packages in the pantry by Nutri-Score.</p>
+      <p id="summary-message" class="message" role="status"></p>
+      <p id="summary-share" class="summary-share"></p>
+      <ul id="summary-list" class="summary-list"></ul>
+    </section>
   </main>
 
   <script src="config.js"></script>
@@ -154,5 +165,6 @@
   <script defer src="scanner.js"></script>
   <script src="app.js"></script>
   <script src="recipes.js"></script>
+  <script src="summary.js"></script>
 </body>
 </html>
