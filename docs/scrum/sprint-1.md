@@ -82,6 +82,8 @@ On 17 November the public site passed health, barcode lookup, cached lookup, err
 
 On 19 November Matheus’s PR #58 supplied update and remove. The personal deployment passed CI, Compose, image publishing, backend and frontend deployment, and health checks at `724ee2e`. Local desktop and emulated phone checks passed with Catalog offline. The team still needs to record update and remove after reload on the public site using a laptop and a physical phone. The optional smoke job was skipped and Bicep #46 remains optional. The professor advised continuing on the personal deployment while the group identity is pending. [CD run](https://github.com/matheusfunabashi/pantrypal-devops/actions/runs/44541649429)
 
+Group 8 also provisioned the IE resources, verified both database users, and checked the Bicep preview on 19 November. The preview listed zero creates, modifications or deletions. The group deployment still needs verification on a laptop and a physical phone after cutover. [Provisioning record](../azure-group-setup.md)
+
 ## Sprint Review
 
 All must deliverables from sprint 1 were implemented and tested. The app works on azure (adding a product to the pantry by barcode with its Nutriscore using OpenFoodFacts, updating/deleting a product, checking if the services are healthy). 

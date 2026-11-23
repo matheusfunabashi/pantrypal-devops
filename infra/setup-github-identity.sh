@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ "${RG:-}" == rg-sdd-3b-g8 ]]; then
+  echo 'IE provisions the group identity. Use bash infra/check-group-identity.sh.' >&2
+  exit 1
+fi
 : "${SUBSCRIPTION:?}" "${RG:?}" "${PREFIX:?}" "${LOCATION:?}" "${STORAGE_ACCOUNT:?}"
 REPO="${REPO:-matheusfunabashi/pantrypal-devops}"
 # Match the ID-bearing subject observed in GitHub Actions' Azure login output.

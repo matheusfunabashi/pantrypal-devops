@@ -1,38 +1,37 @@
 #!/usr/bin/env bash
+# Stage IE-only Actions settings. The current personal deployment uses other names.
 set -euo pipefail
+source "$(dirname "$0")/group8.env"
+REPO=matheusfunabashi/pantrypal-devops
+scope=(--subscription "$SUBSCRIPTION" --resource-group "$RG")
+: "${PANTRY_DB_APP_PASSWORD:?source .env.azure.group8}" "${CATALOG_DB_APP_PASSWORD:?}"
 
-: "${SUBSCRIPTION:?}" "${RG:?}" "${PREFIX:?}" "${STORAGE_ACCOUNT:?}"
-: "${PANTRY_DB_APP_PASSWORD:?}" "${CATALOG_DB_APP_PASSWORD:?}" "${OFF_USER_AGENT:?}"
-REPO="${REPO:-matheusfunabashi/pantrypal-devops}"
-printf '%s' "$PANTRY_DB_APP_PASSWORD" | gh secret set PANTRY_DB_APP_PASSWORD --repo "$REPO"
-printf '%s' "$CATALOG_DB_APP_PASSWORD" | gh secret set CATALOG_DB_APP_PASSWORD --repo "$REPO"
+client=$(bash "$(dirname "$0")/check-group-identity.sh")
+tenant=$(az account show --subscription "$SUBSCRIPTION" --query tenantId -o tsv)
+sql=$(az sql server show "${scope[@]}" -n "$SQL_SERVER" --query fullyQualifiedDomainName -o tsv)
+pantry=$(az containerapp show "${scope[@]}" -n "$PREFIX-pantry" --query properties.configuration.ingress.fqdn -o tsv)
+catalog=$(az containerapp show "${scope[@]}" -n "$PREFIX-catalog" --query properties.configuration.ingress.fqdn -o tsv)
+ui=$(az staticwebapp show "${scope[@]}" -n "$PREFIX-ui" --query defaultHostname -o tsv)
+: "${client:?}" "${tenant:?}" "${sql:?}" "${pantry:?}" "${catalog:?}" "${ui:?}"
+# Check the existing Open Food Facts contact before updating any setting.
+gh api "repos/$REPO/actions/variables/OFF_USER_AGENT" --silent
 
 set_variable() {
-  local name="$1" value="$2"
-  : "${value:?GitHub variable value must not be empty}"
+  local name="IE_$1" value="$2"
   if gh api "repos/$REPO/actions/variables/$name" --silent 2>/dev/null; then
-    gh api --method PATCH "repos/$REPO/actions/variables/$name" -f name="$name" -f value="$value" --silent
+    gh api -X PATCH "repos/$REPO/actions/variables/$name" -f name="$name" -f value="$value" --silent
   else
-    gh api --method POST "repos/$REPO/actions/variables" -f name="$name" -f value="$value" --silent
+    gh api -X POST "repos/$REPO/actions/variables" -f name="$name" -f value="$value" --silent
   fi
 }
-
-SQL_FQDN=$(az sql server show -g "$RG" -n "$PREFIX-sql" --query fullyQualifiedDomainName -o tsv)
-PANTRY_HOST=$(az containerapp show -g "$RG" -n "$PREFIX-pantry" --query properties.configuration.ingress.fqdn -o tsv)
-CATALOG_HOST=$(az containerapp show -g "$RG" -n "$PREFIX-catalog" --query properties.configuration.ingress.fqdn -o tsv)
-UI_ORIGIN=$(az storage account show -g "$RG" -n "$STORAGE_ACCOUNT" --query primaryEndpoints.web -o tsv)
-CLIENT_ID=$(az identity show -g "$RG" -n "$PREFIX-github" --query clientId -o tsv)
-TENANT_ID=$(az identity show -g "$RG" -n "$PREFIX-github" --query tenantId -o tsv)
+set_variable AZURE_CLIENT_ID "$client"
+set_variable AZURE_TENANT_ID "$tenant"
+set_variable AZURE_SUBSCRIPTION_ID "$SUBSCRIPTION"
 set_variable AZURE_RG "$RG"
 set_variable PREFIX "$PREFIX"
-set_variable SQL_SERVER_FQDN "$SQL_FQDN"
-set_variable PANTRY_URL "https://$PANTRY_HOST"
-set_variable CATALOG_URL "https://$CATALOG_HOST"
-set_variable UI_ORIGIN "${UI_ORIGIN%/}"
-set_variable STORAGE_ACCOUNT "$STORAGE_ACCOUNT"
-set_variable AZURE_CLIENT_ID "$CLIENT_ID"
-set_variable AZURE_TENANT_ID "$TENANT_ID"
-set_variable AZURE_SUBSCRIPTION_ID "$SUBSCRIPTION"
-set_variable OFF_USER_AGENT "$OFF_USER_AGENT"
-set_variable ENABLE_FEATURE_SMOKE_TESTS false
-echo 'GitHub deployment secrets and variables configured.'
+set_variable SQL_SERVER_FQDN "$sql"
+set_variable PANTRY_URL "https://$pantry"
+set_variable CATALOG_URL "https://$catalog"
+set_variable UI_ORIGIN "https://$ui"
+printf '%s' "$PANTRY_DB_APP_PASSWORD" | gh secret set IE_PANTRY_DB_APP_PASSWORD --repo "$REPO"
+printf '%s' "$CATALOG_DB_APP_PASSWORD" | gh secret set IE_CATALOG_DB_APP_PASSWORD --repo "$REPO"
