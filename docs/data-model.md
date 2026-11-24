@@ -23,10 +23,18 @@ erDiagram
         DATETIME2 created_at
         DATETIME2 updated_at
     }
-    cached_products }o..o| pantry_items : "same barcode, no foreign key"
+    stock_targets {
+        NVARCHAR_14 barcode PK
+        NVARCHAR_255 name
+        INT target "1 to 999"
+        DATETIME2 created_at
+        DATETIME2 updated_at
+    }
+    pantry_items |o..o| stock_targets : "matches by barcode"
+    cached_products |o..o| pantry_items : "same barcode, no foreign key"
 ```
 
-The dotted line is a logical link only. The tables live in different databases (`catalog_db` and `pantry_db`), so the database cannot enforce it.
+The dotted lines show barcode matches. Catalog and Pantry use separate databases. Within Pantry, a stock target can survive deletion of the matching inventory row.
 
 ## catalog_db: `cached_products`
 
@@ -60,6 +68,12 @@ Owned by the Pantry Service. One row per distinct barcode in the user's pantry. 
 | `updated_at` | DATETIME2 | no | UTC. Set on insert and whenever the quantity changes |
 
 **Snapshots.** The product fields are copied into the pantry row so that listing, updating and deleting items does not need the Catalog Service. They are not refreshed later: they show the product as it was when it was added.
+
+## Pantry stock targets and recipes
+
+Migration `0002_create_stock_targets` adds `stock_targets` to the Pantry database. Each row stores a barcode as primary key, the product name, a target of 1–999 packages, and UTC creation and update timestamps. All five columns are required. Creating a target requires an existing pantry item. There is no foreign key to `pantry_items`, so deleting the last pack preserves the minimum until the user clears it.
+
+The restock list shows a product when its target exceeds its current quantity. A missing inventory row counts as zero. Recipes are defined in `pantry-service/app/recipe_data.py`; the API calculates availability from current pantry quantities on each request.
 
 ## Migrations
 
