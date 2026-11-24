@@ -1,0 +1,15 @@
+ Container pantrypal-acceptance-catalog-service-1  Stopping
+ Container pantrypal-acceptance-catalog-service-1  Stopped
+{"detail":"Product lookup is temporarily unavailable"}
+HTTP 503 in 4.036894 s
+
+Local Catalog down: UI error, list, increase, decrease, delete PASS
+ Container pantrypal-acceptance-catalog-db-1  Waiting
+ Container pantrypal-acceptance-catalog-db-1  Healthy
+ Container pantrypal-acceptance-catalog-db-init-1  Starting
+ Container pantrypal-acceptance-catalog-db-init-1  Started
+ Container pantrypal-acceptance-catalog-db-init-1  Waiting
+ Container pantrypal-acceptance-catalog-db-init-1  Exited
+ Container pantrypal-acceptance-catalog-service-1  Starting
+ Container pantrypal-acceptance-catalog-service-1  Started
+Local Catalog restarted and healthy

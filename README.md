@@ -4,14 +4,14 @@ PantryPal helps people keep track of the food they have at home and check a prod
 
 The full product scope, rules and out-of-scope list are in [docs/product-scope.md](docs/product-scope.md).
 
-**Live URL:** https://sddbcsaig3bui1ffa64df.z1.web.core.windows.net (public frontend). The first successful automated deployment completed on 16 November 2026; merges to `main` deploy after CI passes.
+**Live app** · [PantryPal on Azure Static Web Apps](https://orange-plant-0e3501f03.5.azurestaticapps.net). Merges to `main` deploy to Group 8 after CI passes.
 
 ## Features
 
 | Feature | Status |
 | --- | --- |
 | Look up a product by barcode (name, brand, image, Nutri-Score) | Backend and browser UI deployed |
-| Pantry: add, view, update quantity, delete | Deployed through PR #58. Phone and laptop acceptance for update and removal is pending in #45 |
+| Pantry: add, view, update quantity, delete | Desktop checks passed on the IE deployment. Sami also reported that the physical-phone check passed on 23 November |
 | Restock list | Set a minimum per product and see how many units to buy, even when stock reaches zero |
 | Check Before You Buy | Lookup shows a coloured Nutri-Score badge or “Not available”. Choose a quantity and click “Add to pantry” to save the product, or “Cancel” to clear the lookup. |
 | What can I cook? | Three sample recipes, each shown as "Ready" or with what is missing, from the pantry stock. Packages from different brands count together when their saved names match the ingredient or a supported alias |
@@ -31,13 +31,13 @@ PantryPal has exactly two backend services, each with its own database, and a st
 - **Catalog Service** (FastAPI) looks products up on Open Food Facts and caches the results in its own database.
 - **Frontend** is plain HTML, CSS and JavaScript. It runs in the browser and calls both services directly. Each service only accepts cross-origin requests from the frontend's origin (CORS).
 
-Personal-account deployment on Azure (Sprint 1):
+Production runs in the shared IE resource group `rg-sdd-3b-g8` in West Europe.
 
 ```mermaid
 flowchart LR
     user([Browser])
     subgraph azure[Azure resource group]
-        ui[Storage static website<br/>frontend]
+        ui[Azure Static Web App<br/>frontend]
         subgraph aca[Container Apps environment]
             pantry[Pantry Service<br/>Container App]
             catalog[Catalog Service<br/>Container App]
@@ -60,13 +60,13 @@ flowchart LR
     aca -.->|stdout logs| logs
 ```
 
-Locally, Docker Compose runs the same two services against two SQL Server containers. nginx serves the static frontend on port 8080 for local development only. While the team deploys to a personal Azure account instead of the group's institution account, the frontend is hosted as an Azure Storage static website. Static Web Apps isn't available in the regions that subscription allows, and the team was asked to use Storage hosting for the time being.
+Locally, Docker Compose runs the same two services against two SQL Server containers. nginx serves the static frontend on port 8080 for local development only.
 
 | Component | Local URL | Azure |
 | --- | --- | --- |
-| Frontend | http://localhost:8080 | Storage static website |
-| Pantry Service | http://localhost:8000 | Container App (Sprint 1) |
-| Catalog Service | http://localhost:8001 | Container App (Sprint 1) |
+| Frontend | http://localhost:8080 | Group 8 Static Web App |
+| Pantry Service | http://localhost:8000 | Group 8 Container App |
+| Catalog Service | http://localhost:8001 | Group 8 Container App |
 | Pantry database | localhost:1433 (SQL Server 2022) | Azure SQL serverless |
 | Catalog database | localhost:1434 (SQL Server 2022) | Azure SQL serverless |
 
@@ -169,16 +169,17 @@ Linting, formatting, dependency auditing and the coverage threshold run in GitHu
 
 ## Azure setup
 
-Sprint 1 uses @Thecoolss's personal Azure subscription, with a dedicated project
-resource group and a GitHub deployment identity scoped to that group.
+GitHub Actions signs in with the group managed identity, publishes both images tagged with the main commit, updates the Container Apps and uploads the frontend to the group Static Web App. The Pantry and Catalog services each use a database on the group SQL server. The personal Sprint 1 deployment is retained through grading and has its own data. [Group setup and verification](docs/azure-group-setup.md)
 
-Follow [the personal Azure setup runbook](docs/azure-personal-setup.md) for naming,
-resource creation, database users, GitHub secrets and variables, deployment,
-verification, and password rotation. It accounts for existing unrelated projects.
+## Releases
 
-The professor advised group 8 to continue on the personal deployment while IE prepares the group GitHub identity. The pipeline deployed both services and the Storage frontend from main commit `724ee2e`. Health checks passed. The optional feature smoke job was disabled. [CD run](https://github.com/matheusfunabashi/pantrypal-devops/actions/runs/44541649429)
+| Tag | Purpose |
+| --- | --- |
+| [`v0.2.0`](https://github.com/matheusfunabashi/pantrypal-devops/tree/v0.2.0) | Sprint 2 feature snapshot at `4326d05`. |
+| `v1.0.0` | Release tag reserved for the team's final reviewed commit on `main`. |
+| `submission` | Assignment tag for the same commit. The team submits its full SHA on Blackboard. |
 
-The prepared Group 8 deployment uses two Container Apps, Azure SQL and a Free Static Web App in `rg-sdd-3b-g8`. The personal site above is still live until the group workflow deploys and passes the public checks. [Group 8 Azure setup and verification](docs/azure-group-setup.md)
+The first Group 8 deployment ran at `aeb1ac5`. After PR #83 merged at `5b445d7`, CD deployed both services and the frontend. The post-deployment smoke test now also requests `GET /recipes` from the public Pantry API. [Cutover CD run](https://github.com/matheusfunabashi/pantrypal-devops/actions/runs/45186481843) · [Recipe smoke CD run](https://github.com/matheusfunabashi/pantrypal-devops/actions/runs/45292544544)
 
 ## Documentation
 
@@ -199,5 +200,3 @@ The prepared Group 8 deployment uses two Container Apps, Azure SQL and a Free St
 | [@gustaveems](https://github.com/gustaveems) | Sprint 1 Product Owner; Catalog Service, lookup UI and CI |
 
 Product Owner and Scrum Master rotate each sprint. Who held each role is recorded in `docs/scrum/sprint-N.md`.
-
-On 19 November the team enabled the personal deployment smoke job in GitHub. Direct checks of the deployed barcode lookup and pantry list both returned HTTP 200. The next full main deployment will provide the first Actions result with the flag enabled.

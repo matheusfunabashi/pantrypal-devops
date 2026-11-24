@@ -268,7 +268,7 @@ jobs:
     steps:
       - name: Read-only checks against the deployed services
         # S1-14. Reads only, so it never changes production data. A known barcode
-        # checks Catalog lookup, inventory and stock targets.
+        # checks Catalog lookup, inventory, stock targets and recipe availability.
         env:
           PANTRY_URL: ${{ vars.IE_PANTRY_URL }}
           CATALOG_URL: ${{ vars.IE_CATALOG_URL }}
@@ -276,7 +276,7 @@ jobs:
         run: |
           set -euo pipefail
           # SQL can be resuming after a cold start. These GETs are safe to retry.
-          for url in "$CATALOG_URL/products/3017620422003" "$PANTRY_URL/pantry" "$PANTRY_URL/restock"; do
+          for url in "$CATALOG_URL/products/3017620422003" "$PANTRY_URL/pantry" "$PANTRY_URL/restock" "$PANTRY_URL/recipes"; do
             code=$(curl --retry 6 --retry-all-errors --retry-delay 5 --max-time 20 \
               --fail --silent --show-error --output /dev/null --write-out '%{http_code}' "$url")
             test "$code" = 200
