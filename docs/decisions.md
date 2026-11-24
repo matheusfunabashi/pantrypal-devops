@@ -38,7 +38,7 @@ Status: Decided
 
 On 19 November the professor advised continuing on this deployment while IE provisions its GitHub identity. [First successful automated deployment](https://github.com/matheusfunabashi/pantrypal-devops/actions/runs/43915006087) · [Deployment including update and removal](https://github.com/matheusfunabashi/pantrypal-devops/actions/runs/44541649429)
 
-On 22 November, Group 8 verified that `sdd-3b-g8-github` has Contributor on `rg-sdd-3b-g8`. Azure recorded the identity on 21 November before the 18:00 cutoff. On 22 November the team created the main-branch federated credential and verified its configuration. A GitHub Actions login and deployment to IE are still pending. The personal site remains the submission target pending a team decision to switch. [Group deployment runbook](azure-group-setup.md)
+On 22 November, Group 8 verified that `sdd-3b-g8-github` has Contributor on `rg-sdd-3b-g8`. Azure recorded the identity on 21 November before the 18:00 cutoff. On 22 November the team created the main-branch federated credential and verified its configuration. On 23 November the workflow used this trust to release `aeb1ac5` to IE. The group Static Web App is now the public submission site. See the [cutover CD run](https://github.com/matheusfunabashi/pantrypal-devops/actions/runs/45186481843). [Group deployment runbook](azure-group-setup.md)
 
 ## 4. Configure the static browser UI at deployment
 Date: 2026-11-19

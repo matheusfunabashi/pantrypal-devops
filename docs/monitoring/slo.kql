@@ -3,7 +3,7 @@
 // Fewer than 50 requests is reported as "insufficient data".
 ContainerAppConsoleLogs_CL
 | where TimeGenerated > ago(7d)
-| where ContainerAppName_s == "sdd-bcsai-g3b-personal-pantry"
+| where ContainerAppName_s == "sdd-3b-g8-pantry"
 | where Log_s has "method="
 | extend method = extract(@"method=(\S+)", 1, Log_s),
          path = extract(@"path=(\S+)", 1, Log_s),

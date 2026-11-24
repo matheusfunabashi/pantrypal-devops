@@ -1,6 +1,6 @@
 # Monitoring
 
-Saved Log Analytics queries for the personal deployment (workspace in `rg-sdd-BCSAI-g3B-personal`). The decision and the SLO are in ADR-5 in [docs/decisions.md](../decisions.md).
+The four Sprint 2 queries are saved under the PantryPal category in both workspaces. For the live demo, open `sdd-3b-g8-logs` in `rg-sdd-3b-g8`. The Group 8 copies use the same app names as the KQL files here. The historical copies in `sdd-bcsai-g3b-personal-logs` filter on the personal apps. [ADR-5](../decisions.md)
 
 | Query | What it shows |
 | --- | --- |
@@ -14,4 +14,4 @@ All queries read the request line each service writes, for example `INFO method=
 
 To run one: Azure portal → the Log Analytics workspace → Logs → paste the query → Run. To save it: Save → Save as query, with the file name as the query name.
 
-Screenshots of each result are in [screenshots/](screenshots/).
+On 23 November at 15:25 UTC, Group 8 recorded 82 of 82 successful `GET /pantry` requests within 2 seconds, including 60 deliberate acceptance requests. The personal workspace recorded 134 of 134. Both seven-day samples met the 95% target. The latency is measured inside the service. [Group SLO result](screenshots/ie-slo.png) · [Personal SLO result](screenshots/personal-slo.png) · [All query results](screenshots/)
