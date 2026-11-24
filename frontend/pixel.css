@@ -1,0 +1,281 @@
+/* Pixel theme. Loaded after styles.css and only changes the look:
+   no layout ids, no behaviour. Delete the <link> to go back. */
+
+:root {
+  --px-ink: #1f2a24;
+  --px-paper: #fffdf4;
+  --px-bg: #e9f3dc;
+  --px-green: #2e8b57;
+  --px-green-dark: #1d5e3a;
+  --px-cream: #f6efd6;
+  --px-red: #c8423b;
+  --px-shadow: 4px 4px 0 var(--px-ink);
+}
+
+body {
+  background-color: var(--px-bg);
+  /* a faint 8px grid, like graph paper */
+  background-image:
+    linear-gradient(rgba(31, 42, 36, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(31, 42, 36, 0.06) 1px, transparent 1px);
+  background-size: 8px 8px;
+  color: var(--px-ink);
+}
+
+h1,
+h2,
+h3,
+button,
+.recipe-status,
+.nutri-badge,
+.summary-share {
+  font-family: "Press Start 2P", "Courier New", monospace;
+}
+
+header {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 16px;
+}
+
+header > :not(.mascot) {
+  grid-column: 2;
+}
+
+h1 {
+  margin: 0;
+  font-size: 26px;
+  color: var(--px-green);
+  text-shadow: 3px 3px 0 var(--px-ink);
+  letter-spacing: 1px;
+}
+
+header p {
+  margin: 10px 0 0;
+}
+
+h2 {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+h3 {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.card {
+  background: var(--px-paper);
+  border: 4px solid var(--px-ink);
+  border-radius: 0;
+  box-shadow: 6px 6px 0 var(--px-ink);
+}
+
+input,
+select {
+  border: 3px solid var(--px-ink);
+  border-radius: 0;
+  background: white;
+}
+
+input:focus,
+select:focus {
+  outline: 3px solid var(--px-green);
+  outline-offset: 2px;
+}
+
+button {
+  font-size: 11px;
+  line-height: 1.4;
+  border: 3px solid var(--px-ink);
+  border-radius: 0;
+  background: var(--px-green);
+  color: white;
+  box-shadow: var(--px-shadow);
+  transition: transform 60ms steps(1), box-shadow 60ms steps(1);
+}
+
+button.secondary {
+  background: var(--px-cream);
+  color: var(--px-ink);
+}
+
+button:hover:not(:disabled) {
+  background: var(--px-green-dark);
+  color: white;
+}
+
+button:active:not(:disabled) {
+  transform: translate(4px, 4px);
+  box-shadow: 0 0 0 var(--px-ink);
+}
+
+button:focus-visible {
+  outline: 3px dashed var(--px-ink);
+  outline-offset: 3px;
+}
+
+.nutri-badge {
+  border: 3px solid var(--px-ink);
+  border-radius: 0;
+  font-size: 11px;
+}
+
+.recipe {
+  border: 3px solid var(--px-ink);
+  border-left-width: 10px;
+  border-radius: 0;
+  background: white;
+}
+
+.recipe.ready {
+  border-left-color: var(--px-green);
+  animation: px-pop 400ms steps(4);
+}
+
+.recipe-status {
+  border: 2px solid var(--px-ink);
+  border-radius: 0;
+  font-size: 9px;
+  padding: 6px 8px;
+}
+
+.recipe-missing {
+  color: var(--px-red);
+}
+
+.summary-share {
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.summary-row {
+  border-bottom: 2px dashed rgba(31, 42, 36, 0.35);
+}
+
+.message.error {
+  color: var(--px-red);
+}
+
+img {
+  image-rendering: auto;
+  border-radius: 0;
+}
+
+/* ------------------------------------------------------------ mascot */
+
+.mascot {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  position: relative;
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.mascot:hover:not(:disabled) {
+  background: none;
+}
+
+.mascot:active:not(:disabled) {
+  transform: none;
+}
+
+.mascot canvas {
+  display: block;
+  width: 64px;
+  height: 64px;
+  image-rendering: pixelated;
+}
+
+.mascot.hop canvas {
+  animation: px-hop 500ms steps(5);
+}
+
+.mascot.happy canvas {
+  animation: px-wiggle 700ms steps(7);
+}
+
+.mascot-bubble {
+  position: absolute;
+  left: 70px;
+  top: 4px;
+  z-index: 2;
+  width: max-content;
+  max-width: 220px;
+  padding: 8px 10px;
+  font-family: "Press Start 2P", "Courier New", monospace;
+  font-size: 9px;
+  line-height: 1.6;
+  text-align: left;
+  color: var(--px-ink);
+  background: var(--px-paper);
+  border: 3px solid var(--px-ink);
+  box-shadow: 3px 3px 0 var(--px-ink);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms steps(2);
+}
+
+.mascot-bubble.show {
+  opacity: 1;
+}
+
+@keyframes px-hop {
+  0%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-14px); }
+  70% { transform: translateY(-4px); }
+}
+
+@keyframes px-wiggle {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(-10deg); }
+  40% { transform: rotate(10deg); }
+  60% { transform: rotate(-8deg); }
+  80% { transform: rotate(8deg); }
+}
+
+@keyframes px-pop {
+  0% { transform: scale(0.96); }
+  60% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+
+@media (max-width: 520px) {
+  h1 {
+    font-size: 18px;
+  }
+
+  h2 {
+    font-size: 12px;
+  }
+
+  .mascot,
+  .mascot canvas {
+    width: 48px;
+    height: 48px;
+  }
+
+  .mascot-bubble {
+    left: 52px;
+    max-width: 180px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot.hop canvas,
+  .mascot.happy canvas,
+  .recipe.ready {
+    animation: none;
+  }
+
+  button,
+  .mascot-bubble {
+    transition: none;
+  }
+}
